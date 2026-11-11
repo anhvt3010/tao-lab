@@ -140,7 +140,6 @@ final class TextEn {
         { "custom_skipped_one", "Skipped %1$s" },
         { "custom_skipped_many", "Skipped %1$d files — first %2$s" },
         { "custom_created", "%1$s saved to the memory card as %2$s" },
-        { "custom_saved", "%1$s saved" },
         { "custom_renamed", "Renamed to %1$s" },
         { "custom_deleted", "%1$s deleted" },
         { "custom_save_failed", "Could not save to the memory card: %1$s" },

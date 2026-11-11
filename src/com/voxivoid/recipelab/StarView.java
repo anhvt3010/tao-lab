@@ -14,7 +14,7 @@ public class StarView extends View {
     public StarView(Context c, AttributeSet a) {
         super(c, a);
         d = c.getResources().getDisplayMetrics().density;
-        fill.setColor(0xFFF2B85C);
+        fill.setColor(0xFFFF9F1C);
     }
 
     @Override

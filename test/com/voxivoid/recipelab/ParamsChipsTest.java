@@ -11,11 +11,10 @@ class ParamsChipsTest {
 
     @Test void creativeStyleChipsHideUnderAnEffect() {
         int[] e = factoryRows();
-        for (int r : new int[] { R_STYLE, R_SAT, R_CON, R_SHARP }) assertTrue(rowVisible(r, e), ROW_NAME[r]);
-        assertFalse(rowVisible(R_PP, e), "the Picture Profile row has no chip");
+        for (int r : new int[] { R_STYLE, R_SAT, R_CON, R_SHARP, R_PP }) assertTrue(rowVisible(r, e), ROW_NAME[r]);
         assertFalse(rowVisible(R_SUB, e));
         e[R_PE] = Recipes.PE_RETRO;
-        for (int r : new int[] { R_STYLE, R_SAT, R_CON, R_SHARP }) assertFalse(rowVisible(r, e), ROW_NAME[r]);
+        for (int r : new int[] { R_STYLE, R_SAT, R_CON, R_SHARP, R_PP }) assertFalse(rowVisible(r, e), ROW_NAME[r]);
         assertFalse(rowVisible(R_SUB, e), "Retro has no sub-parameter");
         e[R_PE] = Recipes.PE_TOY;
         assertTrue(rowVisible(R_SUB, e));
@@ -138,7 +137,8 @@ class ParamsChipsTest {
         assertEquals("-2", fmt(R_CON, -2, e));
         assertEquals("0", fmt(R_SHARP, 0, e));
         assertEquals("off", fmt(R_PP, 0, e));
-        assertEquals("on", fmt(R_PP, 1, e));
+        assertEquals("PP1", fmt(R_PP, 1, e));
+        assertEquals("PP2", fmt(R_PP, 2, e));
         assertEquals("auto", fmt(R_WBMODE, WB_AUTO, e));
         assertEquals("kelvin", fmt(R_WBMODE, WB_KELVIN, e));
         assertEquals("3", fmt(R_WBMODE, 3, e));

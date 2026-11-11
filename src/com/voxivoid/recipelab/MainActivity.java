@@ -64,7 +64,7 @@ import static com.voxivoid.recipelab.Params.*;
  * {@link Lang}, in the language the app menu picked; this class only applies it and its font ({@link UiFont}).
  */
 public class MainActivity extends Activity implements SurfaceHolder.Callback {
-    private static final int ACCENT = 0xFFF2B85C, INK = 0xFF1A1208, WHITE = 0xFFFFFFFF, DIM = 0x99FFFFFF;
+    private static final int ACCENT = 0xFFFF9F1C, INK = 0xFF0E1015, WHITE = 0xFFFFFFFF, DIM = 0xB3FFFFFF;
 
     private View panel;
     private PickerView picker;
@@ -77,14 +77,13 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     /**
      * the questions the prompt asks: quality change, reset, discard a recipe's edits, a custom recipe's options, delete it
      */
-    private static final int P_QUALITY = 0, P_RESET = 1, P_DISCARD = 2, P_OPTIONS = 3, P_DELETE = 4, P_PP = 5, P_ADD = 6;
-    private Runnable afterDiscard;                               // what the discard question goes on to do when answered Discard
+    private static final int P_QUALITY = 0, P_RESET = 1, P_OPTIONS = 3, P_DELETE = 4, P_PP = 5, P_ADD = 6;
     // the name editor, and what its OK does: keep a recipe's edits as a copy and store it, keep the camera's settings, rename
     private KeyboardView keyboard;
     private NameEntry nameEntry;
     private boolean nameOpen = false;
-    private int nameFor = NAME_COPY;
-    private static final int NAME_COPY = 0, NAME_NEW = 1, NAME_RENAME = 2;
+    private int nameFor = NAME_NEW;
+    private static final int NAME_NEW = 1, NAME_RENAME = 2;
     // custom recipes: the card's folder (null without a card), the files a load skipped, and whether they were reported
     private final Library library = new Library();
     private File cardDir;
@@ -125,7 +124,6 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     private boolean transferSync;                               // the page was opened as Sync recipes: same link, its own words
     private Keys.Caps caps = Keys.Caps.UNKNOWN;                 // the shortcut keys this body reports (KeyProbe)
     private HintBar hints;
-    private SponsorLine sponsor;
     private LinearLayout chips;
     private final TextView[] chipLabel = new TextView[N], chipValue = new TextView[N];
     private final View[] chip = new View[N];
@@ -152,14 +150,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     private final Runnable runNext = new Runnable() { public void run() { cancelCapture(); resumePreview(); sampleStage(); } };
 
     private SurfaceHolder holder;
-    private Object cameraEx; private Camera camera; private String origFlat;
+    private Object cameraEx; private Camera camera;
     private int row = 0, recipe = 0, overlay = OV_FULL;   // Params.OV_*: the full panel, the pill, nothing, the browser, the panel without keys
     private int panelBefore = OV_FULL;                    // the overlay the browser was opened from
     private boolean focus = false;                        // a chip is focused: UP/DOWN change its value
-    private boolean onActions = false;                    // the highlight is on the edit buttons under the chips
-    private int actionSel = 0;                            // which of them
-    private LinearLayout actionsRow;
-    private final TextView[] actionBtn = new TextView[4];
     private int browserCol = COL_RECIPES;                 // browser: Params.COL_GROUPS or COL_RECIPES
     private int browserGroup = 0;                     // browser: the group the brand column is on — Favorites.ALL, .GROUP, .CUSTOM or a brand
     private int wheelGroup = Favorites.ALL;          // the group the wheel loops through: where the last recipe was picked (issue #155)
@@ -169,11 +163,16 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     private String previewErr = "";
     // the shareable log on the card (CardLog): the last preview line written, so a failure repeated per key press is logged once
     private String lastPreviewLog = "";
-    private String lastMode;                                   // the mode dial as last logged: a turn with the app open is logged once
+    private static final CrashHandler.Sink CRASH_LOG = new CrashHandler.Sink() {
+        public void write(Thread thread, Throwable error) {
+            DiagnosticLog.crash(CardLog.dir(cardRoot()), thread, error);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        CrashHandler.install(CRASH_LOG);
         setContentView(R.layout.main);
         prefs = getPreferences(MODE_PRIVATE);
         recipe = Math.max(0, Math.min(Recipes.ALL.length - 1, prefs.getInt("recipe", 0)));
@@ -194,7 +193,6 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         count = (TextView) findViewById(R.id.count);
         meta = (TextView) findViewById(R.id.meta);
         hints = (HintBar) findViewById(R.id.hints);
-        sponsor = (SponsorLine) findViewById(R.id.sponsor);
         mini = (TextView) findViewById(R.id.mini);
         toast = (TextView) findViewById(R.id.toast);
         prompt = (PromptView) findViewById(R.id.prompt);
@@ -203,21 +201,12 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         qr = (QrView) findViewById(R.id.qr);
         chips = (LinearLayout) findViewById(R.id.chips);
         buildChips();
-        actionsRow = (LinearLayout) findViewById(R.id.actions);
-        buildActions();
         applyLanguage();
         caps = KeyProbe.caps();
         hints.setCaps(caps); picker.setCaps(caps);
         SurfaceView sv = (SurfaceView) findViewById(R.id.surface);
         holder = sv.getHolder();
         holder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-        final Thread.UncaughtExceptionHandler was = Thread.getDefaultUncaughtExceptionHandler();
-        Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-            public void uncaughtException(Thread th, Throwable t) {
-                log(CardLog.CRASH, CardLog.stack(t));            // written and closed before the app goes
-                if (was != null) was.uncaughtException(th, t);
-            }
-        });
     }
 
     // ------------------------------------------------------------ the shareable log on the card (RECIPLAB/LOGS)
@@ -227,37 +216,11 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         catch (Throwable t) { return null; }
     }
 
-    /** one line of LOG.TXT; a log that cannot be written must never take the app down with it */
-    private static void log(String kind, String msg) {
-        try { CardLog.append(CardLog.dir(cardRoot()), CardLog.LOG, CardLog.line(kind, msg)); } catch (Throwable t) {}
-    }
+    /** Event writes run off the UI thread, with a bounded queue. */
+    private static void log(String kind, String msg) { DiagnosticLog.record(CardLog.dir(cardRoot()), kind, msg); }
 
-    /**
-     * Each opening: the body, the build and the mode dial; what the store holds, when it changed since it was last
-     * logged; and every camera parameter in PARAMS.TXT, rewritten only when they changed. All of it comes from what
-     * onResume has already read (load, the camera's parameters), so an opening costs one short line most of the time.
-     */
     private static String androidVersion() {
         return CardLog.android(Build.VERSION.RELEASE, Build.VERSION.SDK_INT);
-    }
-
-    private void logOpen() {
-        lastMode = CardLog.param(origFlat, CardLog.MODE_KEY);
-        String head = CardLog.header(KeyProbe.prop("model.name"), KeyProbe.firmware(), KeyProbe.prop("version.platform"), androidVersion(), versionName(), keysFound(), lastMode);
-        log(CardLog.OPEN, head);
-        String state = CardLog.state(cur);
-        if (!state.equals(prefs.getString("loggedState", null))) {
-            log(CardLog.STATE, state);
-            prefs.edit().putString("loggedState", state).commit();
-        }
-        File dir = CardLog.dir(cardRoot());
-        if (origFlat == null || dir == null) return;
-        int hash = origFlat.hashCode();
-        if (hash == prefs.getInt("paramsHash", 0) && new File(dir, CardLog.PARAMS).exists()) return;
-        try {
-            CardLog.replace(dir, CardLog.PARAMS, CardLog.paramsFile(CardLog.now() + "  " + head, origFlat));
-            prefs.edit().putInt("paramsHash", hash).commit();
-        } catch (Throwable t) {}
     }
 
     /**
@@ -309,29 +272,16 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
             LinearLayout c = new LinearLayout(this);
             c.setOrientation(LinearLayout.VERTICAL);
             c.setGravity(Gravity.CENTER_HORIZONTAL);
-            c.setPadding(dp(8), dp(3), dp(8), dp(4));
+            c.setMinimumWidth(dp(46));
+            c.setPadding(dp(7), dp(3), dp(7), dp(4));
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
             lp.rightMargin = dp(5);
             c.setLayoutParams(lp);
-            TextView l = new TextView(this); l.setTextSize(9);                    // its text is set by render(), in the display language
-            TextView v = new TextView(this); v.setTextSize(13); v.setTypeface(Typeface.DEFAULT_BOLD); v.setSingleLine(true);
+            TextView l = new TextView(this); l.setTextSize(8.5f); l.setSingleLine(true); l.setPadding(dp(3), 0, dp(3), 0);
+            TextView v = new TextView(this); v.setTextSize(12); v.setTypeface(Typeface.DEFAULT_BOLD); v.setSingleLine(true); v.setPadding(dp(4), 0, dp(4), 0);
             c.addView(l); c.addView(v);
             chips.addView(c);
             chip[i] = c; chipLabel[i] = l; chipValue[i] = v;
-        }
-    }
-
-    /** the edit buttons under the chips (Save, Apply, Save as new, Discard — CustomRecipes.editActions), drawn like chips */
-    private void buildActions() {
-        for (int i = 0; i < actionBtn.length; i++) {
-            TextView b = new TextView(this);
-            b.setTextSize(12); b.setTypeface(Typeface.DEFAULT_BOLD); b.setSingleLine(true);
-            b.setPadding(dp(12), dp(4), dp(12), dp(4));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            lp.rightMargin = dp(6);
-            b.setLayoutParams(lp);
-            actionsRow.addView(b);
-            actionBtn[i] = b;
         }
     }
 
@@ -341,7 +291,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         Lang.use(Lang.resolve(langChoice, l == null ? null : l.getLanguage(), l == null ? null : l.getCountry()));
         Typeface tf = UiFont.of(this, Lang.current());
         UiFont.apply(findViewById(android.R.id.content), tf);
-        picker.setTypeface(tf); prompt.setTypeface(tf); menu.setTypeface(tf); qr.setTypeface(tf); hints.setTypeface(tf); keyboard.setTypeface(tf); sponsor.setTypeface(tf);
+        picker.setTypeface(tf); prompt.setTypeface(tf); menu.setTypeface(tf); qr.setTypeface(tf); hints.setTypeface(tf); keyboard.setTypeface(tf);
     }
 
     @Override
@@ -351,23 +301,23 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         reloadCustoms();                                         // the card may have been edited over USB, or swapped
         int last = library.indexOfCustom(prefs.getString("customRecipe", null));
         if (last >= 0) recipe = last;
-        lastPreviewLog = ""; origFlat = null;
+        lastPreviewLog = "";
         resumed = true;
         try {
             openCamera();
-            origFlat = camera.getParameters().flatten();
             holder.addCallback(this);
             previewOk = true;
-        } catch (Throwable t) { previewOk = false; previewErr = String.valueOf(t); logPreview("camera did not open: " + previewErr); }
-        logOpen();
+        } catch (Throwable t) { previewOk = false; previewErr = String.valueOf(t); }
         showRecipe();                                          // with the edits last applied, when the camera still holds them
-        applyPreview(); render();
-        if (!prefs.getBoolean("keysNoticeSeen", false)) {               // the keys moved in this build (issue #18): say so once
-            showToast(Keys.notice(), 8000);
+        render(); applyPreviewNow();
+        log(CardLog.OPEN, CardLog.header(KeyProbe.prop("model.name"), KeyProbe.firmware(), KeyProbe.prop("version.platform"),
+                androidVersion(), versionName(), keysFound(), null));
+        if (!prefs.getBoolean("keysNoticeSeen", false)) {
             prefs.edit().putBoolean("keysNoticeSeen", true).commit();
         }
-        if (Params.asksPictureProfileOff(cur)) openPrompt(P_PP, Params.PP_DEFAULT);   // every time: no recipe shows while it runs (#90)
     }
+
+    private Camera.Parameters cachedParams;
 
     /** Sony's camera, and the plain Android one inside it the app drives */
     private void openCamera() throws Exception {
@@ -375,13 +325,14 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         Method open = cx.getMethod("open", int.class, Class.forName("com.sony.scalar.hardware.CameraEx$OpenOptions"));
         cameraEx = open.invoke(null, 0, null);
         camera = (Camera) cx.getMethod("getNormalCamera").invoke(cameraEx);
+        cachedParams = camera.getParameters();
     }
 
     /** lets go of the camera: its decoder refuses every photo while the app holds it (Playback) */
     private void releaseCamera() {
         try { if (camera != null) camera.stopPreview(); } catch (Throwable t) {}
         try { if (cameraEx != null) cameraEx.getClass().getMethod("release").invoke(cameraEx); } catch (Throwable t) {}
-        cameraEx = null; camera = null;
+        cameraEx = null; camera = null; cachedParams = null;
     }
 
     /** the camera back after {@link #releaseCamera}, its live view on the screen the app already has, the look applied */
@@ -424,19 +375,20 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         closeMenu();
         closeName();
         closeQr();
-        if (promptOpen && promptKind >= P_DISCARD) { closePrompt(); afterDiscard = null; }   // about this recipe: the card is read again on the way back
+        if (promptOpen && promptKind >= P_OPTIONS) closePrompt(); // the card is read again on the way back
         stopLogger();
         handler.removeCallbacks(restartPreview);
+        handler.removeCallbacks(deferredPreview);
         handler.removeCallbacks(hideToast); toast.setVisibility(View.GONE);   // gone with its timer, or it stays on coming back
         handler.removeCallbacks(enterHold); handler.removeCallbacks(menuHold); handler.removeCallbacks(trashHold);
         enter.reset(); menuKeyHold.reset(); trash.reset();
         holder.removeCallback(this);
         // leave the live parameters equal to what is STORED (not to the launch snapshot): the camera writes some live
         // values (exposure bias, WB fine-tune) straight back into the settings store, which would undo a fresh store
-        try { if (camera != null) { load(); System.arraycopy(cur, 0, edit, 0, N); applyPreview(); } } catch (Throwable t) {}
+        try { if (camera != null) { load(); System.arraycopy(cur, 0, edit, 0, N); applyPreviewNow(); } } catch (Throwable t) {}
         try { if (camera != null) camera.stopPreview(); } catch (Throwable t) {}
         try { if (cameraEx != null) cameraEx.getClass().getMethod("release").invoke(cameraEx); } catch (Throwable t) {}
-        cameraEx = null; camera = null;
+        cameraEx = null; camera = null; cachedParams = null;
         deleteScanPhotos();                                      // with the camera let go, as the camera's delete needs
     }
 
@@ -458,6 +410,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     private int rdu(int id) throws NativeException { return NativeBackup.readByte(id) & 0xff; }
 
     private void load() {
+        cachedSubPe = -1;
         try {
             for (int i = 1; i < N; i++) {
                 int id = ROW_ID[i];
@@ -471,6 +424,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     private void stageRecipe() {
         Recipes.Recipe r = library.get(recipe);
         Params.stage(r, edit);
+        if (r.ppProfile != null && edit[R_PE] == 0) edit[R_PP] = r.ppProfile.pp;
         edit[R_QUAL] = recipeQuality(r);
     }
 
@@ -496,13 +450,30 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     }
     private boolean qualityPersistent() { return ID_QFMT != 0; }
 
-    /** stored value of the SUB slot for the staged effect (the slot changes with the effect) */
-    private int storedSub() { int sid = Recipes.subId(edit[R_PE]); if (sid == 0) return edit[R_SUB]; try { return rdu(sid); } catch (Throwable t) { return edit[R_SUB]; } }
+    private int cachedStoredSub = 0, cachedSubPe = -1;
+
+    /** stored value of the SUB slot for the staged effect, cached in memory to avoid JNI reads during render() */
+    private int storedSub() {
+        int pe = edit[R_PE];
+        int sid = Recipes.subId(pe);
+        if (sid == 0) return edit[R_SUB];
+        if (pe == cachedSubPe) return cachedStoredSub;
+        try { cachedStoredSub = rdu(sid); cachedSubPe = pe; return cachedStoredSub; }
+        catch (Throwable t) { return edit[R_SUB]; }
+    }
 
     private boolean qualityChanges() { return edit[R_QUAL] != cur[R_QUAL]; }
 
     private boolean rowDirty(int i) { return Params.rowDirty(i, cur, edit, i == R_SUB ? storedSub() : 0); }
-    private boolean dirty() { for (int i = 1; i < N; i++) if (rowDirty(i)) return true; return false; }
+    private boolean ppDirty() {
+        Recipes.Recipe r = library.get(recipe);
+        return r.ppProfile != null && edit[R_PE] == 0 && edit[R_PP] > 0
+                && !Params.ppSignature(r, edit[R_PP]).equals(prefs.getString("appliedPpSignature", null));
+    }
+    private boolean dirty() {
+        for (int i = 1; i < N; i++) if (rowDirty(i)) return true;
+        return ppDirty();
+    }
     private boolean rowVisible(int i) { return Params.rowVisible(i, edit); }
 
     private void writeAll() { writeAll(false); }
@@ -520,12 +491,13 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         if (!confirmed && qualityChanges()) { openPrompt(P_QUALITY, 0); return; }
         if (!dirty()) { showToast(Lang.t("status_already_picked"), 2500); return; }
         int storedSub = storedSub();
-        int n = Params.dirtyRows(cur, edit, storedSub);
-        List<Params.Write> ws = Params.writes(cur, edit, storedSub);
+        Recipes.Recipe r = library.get(recipe);
+        int n = Math.max(1, Params.dirtyRows(cur, edit, storedSub));
+        List<Params.Write> ws = Params.recipeWrites(cur, edit, storedSub, r);
         int[] attrs = attrsOf(ws);
         List<Integer> locked = Params.lockedFrom(ws, attrs);   // the slots backup protection would refuse (issue #19)
         ws = Params.supportedFrom(ws, attrs);                  // drop companion copies absent on older bodies (issue #84)
-        String what = Recipes.displayName(library.get(recipe));
+        String what = Recipes.displayName(r);
         if (!locked.isEmpty()) { log(CardLog.FAIL, what + ": read-only " + CardLog.ids(locked)); showToast(Params.lockedMessage(locked), 0); return; }   // nothing written, so nothing half-applied
 
         String msg = null;
@@ -541,7 +513,13 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         if (written > 0) NativeBackup.sync();                    // Backup_sync_all is void: nothing to catch, nothing to report
         boolean ok = msg == null;
         if (ok) log(CardLog.WRITE, CardLog.written(what, ws));
-        if (ok) msg = Lang.t(n == 1 ? "status_picked_one" : "status_picked_many", n);
+        if (ok) {
+            msg = Lang.t(n == 1 ? "status_picked_one" : "status_picked_many", n);
+            if (r.ppProfile != null && edit[R_PE] == 0 && edit[R_PP] > 0)
+                prefs.edit().putString("appliedPpSignature", Params.ppSignature(r, edit[R_PP])).remove("appliedPpRecipe").commit();
+            else
+                prefs.edit().remove("appliedPpSignature").remove("appliedPpRecipe").commit();
+        }
         // what was written is now the look: keep it on the chips — re-staging the recipe would drop edits just applied
         // to a built-in one ("Apply only"); after a refusal, the recipe is staged again, ready to retry
         load();
@@ -616,7 +594,6 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         Recipes.Recipe r = library.get(recipe);
         switch (promptKind) {
             case P_RESET: prompt.set(DevTools.resetTitle(), DevTools.resetBody(), DevTools.resetOptions(), promptSel, null); break;
-            case P_DISCARD: prompt.set(CustomRecipes.discardTitle(Recipes.displayName(r)), CustomRecipes.discardBody(), CustomRecipes.discardOptions(), promptSel, null); break;
             case P_OPTIONS: prompt.set(r.name, CustomRecipes.optionsBody(library.entry(recipe).file), CustomRecipes.options(), promptSel, null); break;
             case P_DELETE: prompt.set(CustomRecipes.deleteTitle(r.name), CustomRecipes.deleteBody(library.entry(recipe).file), CustomRecipes.deleteOptions(), promptSel, null); break;
             case P_PP: { String[] q = Params.pictureProfilePrompt(); prompt.set(q[0], q[1], Params.pictureProfileOptions(), promptSel, null); break; }
@@ -646,7 +623,6 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
             case K_ENTER: closePrompt(); promptAnswered(); render(); return true;
             case K_MENU: case K_SK1:
                 swallowMenuUp = true; closePrompt();
-                if (promptKind == P_DISCARD) afterDiscard = null;
                 if (promptKind == P_ADD) closeQr();
                 render(); return true;
         }
@@ -657,11 +633,6 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     private void promptAnswered() {
         switch (promptKind) {
             case P_RESET: if (promptSel == 0) storeFactory(); else showToast(Lang.t("status_not_reset"), 2000); return;
-            case P_DISCARD: {
-                Runnable then = afterDiscard; afterDiscard = null;
-                if (promptSel == CustomRecipes.DISCARD && then != null) then.run();
-                return;
-            }
             case P_ADD: if (promptSel == CustomRecipes.ADD) addScanned(); closeQr(); return;
             case P_OPTIONS:
                 if (promptSel == CustomRecipes.OPT_SHARE) openShare();
@@ -741,32 +712,55 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         showToast(text, 0);
     }
 
-    // ------------------------------------------------------------ app menu (MENU hold), developer menu under it, and the sample run
+    // ------------------------------------------------------------ streamlined app menu (MENU hold): only essential rows
+    private static final int[] CLEAN_MENU_ROWS = {
+        DevTools.APP_BROWSE,
+        DevTools.APP_NEW,
+        DevTools.APP_READ_QR,
+        DevTools.APP_PANEL,
+        DevTools.APP_LANG,
+        DevTools.APP_RESET,
+        DevTools.APP_REPORT,
+        DevTools.APP_ABOUT
+    };
+    private static final int[] CLEAN_MENU_ICONS = {
+        DevTools.IC_BROWSE,
+        DevTools.IC_NEW,
+        DevTools.IC_QR,
+        DevTools.IC_PANEL,
+        DevTools.IC_LANGUAGE,
+        DevTools.IC_RESET,
+        DevTools.IC_REPORT,
+        DevTools.IC_ABOUT
+    };
+
     private void openMenu(int level) {
         if (running) return;
-        menuOpen = true; menuLevel = level; menuPage = PAGE_ROWS; menuSel = 0; renderMenu();
+        menuOpen = true; menuLevel = DevTools.LEVEL_APP; menuPage = PAGE_ROWS; menuSel = 0; renderMenu();
     }
 
     private void renderMenu() {
-        if (menuPage == PAGE_ABOUT) menu.setPage(DevTools.aboutTitle(), DevTools.about(versionName(), KeyProbe.prop("model.name"),
-                KeyProbe.firmware(), KeyProbe.prop("version.platform")), DevTools.aboutFooter(), Keys.hints(Keys.H_PAGE, caps));
-        else if (menuPage == PAGE_TRANSFER && transfer != null) menu.setTransfer(transferSync ? DevTools.syncTitle() : DevTools.transferTitle(),
-                DevTools.transferPage(transfer.state(), transfer.stats(), transfer.rate(), transferSync), Keys.hints(Keys.H_TRANSFER, caps));
-        else {
-            int n = DevTools.rows(menuLevel);
-            boolean app = menuLevel == DevTools.LEVEL_APP, snapshotTaken = !app && snapFile().exists();
-            String[] labels = new String[n], details = new String[n], values = new String[n];
-            Typeface[] faces = new Typeface[n];
-            for (int i = 0; i < n; i++) {
-                labels[i] = app ? DevTools.appLabel(i) : DevTools.rowLabel(i, snapshotTaken, settleIdx);
-                details[i] = app ? DevTools.appDetail(i) : DevTools.rowDetail(i, snapshotTaken);
-                values[i] = app ? DevTools.appValue(i, overlay, langChoice) : DevTools.rowValue(i, settleIdx);
-            }
-            if (app) faces[DevTools.APP_LANG] = UiFont.of(this, Lang.choiceScript(langChoice));   // 简体中文 in its own font, whatever the menu's
-            boolean value = values[menuSel] != null;
-            int legend = app ? (value ? Keys.H_MENU_TOP_VALUE : Keys.H_MENU_TOP) : (value ? Keys.H_MENU_SUB_VALUE : Keys.H_MENU_SUB);
-            menu.set(app ? DevTools.APP_TITLE : DevTools.title(), labels, details, values, faces, DevTools.icons(menuLevel), menuSel, Keys.hints(legend, caps));
+        if (menuPage == PAGE_ABOUT) {
+            String[][] info = DevTools.about(versionName(), KeyProbe.prop("model.name"), KeyProbe.firmware(), KeyProbe.prop("version.platform"));
+            String[][] lines = java.util.Arrays.copyOf(info, info.length + 1);
+            lines[info.length] = new String[] { "Recipe Lab", "Based on Recipe Lab by André Domingues" };
+            menu.setPage(Lang.t("menu_about"), lines, Keys.hints(Keys.H_PAGE, caps));
+            menu.setVisibility(View.VISIBLE);
+            return;
         }
+        int n = CLEAN_MENU_ROWS.length;
+        String[] labels = new String[n], details = new String[n], values = new String[n];
+        Typeface[] faces = new Typeface[n];
+        for (int i = 0; i < n; i++) {
+            int rowId = CLEAN_MENU_ROWS[i];
+            labels[i] = DevTools.appLabel(rowId);
+            details[i] = DevTools.appDetail(rowId);
+            values[i] = DevTools.appValue(rowId, overlay, langChoice);
+            if (rowId == DevTools.APP_LANG) faces[i] = UiFont.of(this, Lang.choiceScript(langChoice));
+        }
+        boolean value = values[menuSel] != null;
+        int legend = value ? Keys.H_MENU_TOP_VALUE : Keys.H_MENU_TOP;
+        menu.set(DevTools.APP_TITLE, labels, details, values, faces, CLEAN_MENU_ICONS.clone(), menuSel, Keys.hints(legend, caps));
         menu.setVisibility(View.VISIBLE);
     }
 
@@ -786,63 +780,50 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
 
     /** the centre button on a menu row */
     private void pickMenuRow() {
-        if (menuLevel == DevTools.LEVEL_APP) {
-            switch (menuSel) {
-                case DevTools.APP_BROWSE: closeMenu(); browse(); break;
-                case DevTools.APP_NEW: closeMenu(); openName(NAME_NEW); break;   // the camera's current settings, kept as a recipe
-                case DevTools.APP_READ_QR: closeMenu(); openScan(); break;
-                case DevTools.APP_TRANSFER: openTransfer(false); break;
-                case DevTools.APP_SYNC: openTransfer(true); break;
-                case DevTools.APP_PANEL: case DevTools.APP_LANG: stepMenuValue(+1); break;
-                case DevTools.APP_RESET: closeMenu(); askReset(); break;
-                case DevTools.APP_REPORT: closeMenu(); saveReport(); break;
-                case DevTools.APP_ABOUT: menuPage = PAGE_ABOUT; renderMenu(); break;
-                case DevTools.APP_DEV: menuLevel = DevTools.LEVEL_DEV; menuSel = 0; renderMenu(); break;
-            }
-            return;
-        }
-        // developer menu: the tools close the menu and run, the delay row stays open and cycles
-        switch (menuSel) {
-            case DevTools.ROW_SNAPSHOT: closeMenu(); snapshotOrDiff(); break;
-            case DevTools.ROW_LOCKS: closeMenu(); lockCheck(); break;
-            case DevTools.ROW_SAMPLES: closeMenu(); startRun(); break;
-            case DevTools.ROW_SETTLE: stepMenuValue(+1); break;
-            case DevTools.ROW_KEYS: closeMenu(); startLogger(); break;
+        switch (CLEAN_MENU_ROWS[menuSel]) {
+            case DevTools.APP_BROWSE: closeMenu(); browse(); break;
+            case DevTools.APP_NEW: closeMenu(); openName(NAME_NEW); break;
+            case DevTools.APP_READ_QR: closeMenu(); openScan(); break;
+            case DevTools.APP_PANEL: case DevTools.APP_LANG: stepMenuValue(+1); break;
+            case DevTools.APP_RESET: closeMenu(); askReset(); break;
+            case DevTools.APP_REPORT: saveReport(); break;
+            case DevTools.APP_ABOUT: menuPage = PAGE_ABOUT; renderMenu(); break;
         }
     }
 
     /** left / right on a row that has a value: change it in place, the menu stays open; false when the row has none */
     private boolean stepMenuValue(int dir) {
-        if (menuLevel == DevTools.LEVEL_APP && menuSel == DevTools.APP_PANEL) overlay = DevTools.nextPanel(overlay, dir);
-        else if (menuLevel == DevTools.LEVEL_APP && menuSel == DevTools.APP_LANG) {
+        int rowId = CLEAN_MENU_ROWS[menuSel];
+        if (rowId == DevTools.APP_PANEL) overlay = DevTools.nextPanel(overlay, dir);
+        else if (rowId == DevTools.APP_LANG) {
             langChoice = Lang.nextChoice(langChoice, dir);
             prefs.edit().putString("language", Lang.choiceCode(langChoice)).commit();
-            applyLanguage();                                     // the menu redraws in it straight away, the panel under it too
-        } else if (menuLevel == DevTools.LEVEL_DEV && menuSel == DevTools.ROW_SETTLE) {
-            settleIdx = DevTools.nextSettle(settleIdx, dir);
-            prefs.edit().putInt("settle", settleIdx).commit();
+            applyLanguage();
         } else return false;
         renderMenu(); render();
         return true;
     }
 
-    /** keys while a menu is up: MENU goes back a level (a page back to its menu, the developer menu back to the app menu), then closes */
+    /** keys while a menu is up: MENU closes */
     private boolean menuKey(int sc) {
-        if (menuPage != PAGE_ROWS) {
-            if (isMenu(sc)) swallowMenuUp = true;
-            if (isMenu(sc) || sc == K_ENTER) { menuPage = PAGE_ROWS; renderMenu(); }
+        if (menuPage == PAGE_ABOUT) {
+            if (sc == K_MENU || sc == K_SK1) { swallowMenuUp = true; menuPage = PAGE_ROWS; renderMenu(); }
             return true;
         }
-        int dir = sc == K_UP ? -1 : sc == K_DOWN ? +1 : turn(sc);      // any wheel or dial moves rows, as in the camera's menu
-        if (dir != 0) { menuSel = DevTools.nextRow(menuLevel, menuSel, dir); renderMenu(); return true; }
+        int dir = sc == K_UP ? -1 : sc == K_DOWN ? +1 : turn(sc);
+        if (dir != 0) {
+            int n = CLEAN_MENU_ROWS.length;
+            menuSel = (menuSel + n + dir) % n;
+            renderMenu();
+            return true;
+        }
         switch (sc) {
-            case K_LEFT: stepMenuValue(-1); return true;                         // only rows with a value take left / right
+            case K_LEFT: stepMenuValue(-1); return true;
             case K_RIGHT: stepMenuValue(+1); return true;
             case K_ENTER: pickMenuRow(); return true;
             case K_MENU: case K_SK1:
                 swallowMenuUp = true;
-                if (menuLevel == DevTools.LEVEL_DEV) { menuLevel = DevTools.LEVEL_APP; menuSel = DevTools.APP_DEV; renderMenu(); }
-                else closeMenu();
+                closeMenu();
                 return true;
         }
         return true;
@@ -1106,18 +1087,24 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
 
     /** the card's pixels into the camera's image, 32 rows at a time, the bitmap let go after */
     private static void writeCard(Playback.Target t, Bitmap b, RecipeCardLayout l) {
+        int handle = 0;
         try {
             int w = l.width, band = 32;
             int[] px = new int[w * band];
-            int handle = NativePlayback.open(t.image, t.geometry, w, l.height);
+            handle = NativePlayback.open(t.image, t.geometry, w, l.height);
             for (int y = 0; y < l.height; y += band) {
                 int n = Math.min(band, l.height - y);
                 b.getPixels(px, 0, w, 0, y, w, n);
                 NativePlayback.rows(handle, px, w, y, n);
             }
-            String why = NativePlayback.close(handle, l.height);
+            int closing = handle;
+            handle = 0;
+            String why = NativePlayback.close(closing, l.height);
             if (why != null) throw new IllegalStateException(why);
         } finally {
+            if (handle != 0) {
+                try { NativePlayback.close(handle, 0); } catch (Throwable ignored) {}
+            }
             b.recycle();
         }
     }
@@ -1166,7 +1153,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
 
     /** the QR screen over everything the panel shows */
     private void showQr() {
-        panel.setVisibility(View.GONE); mini.setVisibility(View.GONE); picker.setVisibility(View.GONE); sponsor.setVisibility(View.GONE);
+        panel.setVisibility(View.GONE); mini.setVisibility(View.GONE); picker.setVisibility(View.GONE);
         qr.setVisibility(View.VISIBLE);
     }
 
@@ -1244,7 +1231,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     private void keepCover(int sc) {
         log(CardLog.QR, "key " + sc + " while busy: screen " + (qr.isShown() ? "shown" : "hidden")
                 + ", window " + (hasWindowFocus() ? "focused" : "not focused"));
-        panel.setVisibility(View.GONE); mini.setVisibility(View.GONE); picker.setVisibility(View.GONE); sponsor.setVisibility(View.GONE);
+        panel.setVisibility(View.GONE); mini.setVisibility(View.GONE); picker.setVisibility(View.GONE);
         qr.setVisibility(View.VISIBLE);
         qr.bringToFront();
         qr.invalidate();
@@ -1561,12 +1548,14 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     private void openName(int purpose) {
         if (cardDir == null) { showToast(Lang.t("custom_need_card"), 4000); return; }
         if (purpose != NAME_RENAME) {                           // nothing to name if the look is not one a file can hold
-            String bad = CustomRecipes.problem(CustomRecipes.recipe(CustomRecipes.UNTITLED, purpose == NAME_NEW ? cur : edit));
-            if (bad != null) { showToast(Lang.t("custom_capture_failed", bad), 0); return; }
+            try {
+                String bad = CustomRecipes.problem(CustomRecipes.recipe(CustomRecipes.UNTITLED, cur, profileFor(cur)));
+                if (bad != null) { showToast(Lang.t("custom_capture_failed", bad), 0); return; }
+            } catch (Exception e) { showToast(Lang.t("custom_capture_failed", String.valueOf(e.getMessage())), 0); return; }
         }
         nameFor = purpose;
         nameEntry = purpose == NAME_RENAME ? NameEntry.of(library.get(recipe).name)
-                : NameEntry.blank(purpose == NAME_COPY ? CustomRecipes.copyName(library.get(recipe).name, library.customNames()) : CustomRecipes.defaultName(library.customNames()));
+                : NameEntry.blank(CustomRecipes.defaultName(library.customNames()));
         nameOpen = true;
         renderName();
     }
@@ -1607,32 +1596,32 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         closeName();
         switch (nameFor) {
             case NAME_NEW: if (saveNew(name, cur)) rememberReopen(); break;   // the camera's own look: the one it holds
-            case NAME_COPY: focus = false; if (saveNew(name, edit)) writeAll(); break;   // the copy is the look now: stored too
             case NAME_RENAME: renameCustom(name); break;
         }
         render();
     }
 
-    /** keeps {@code rows} as a new custom recipe and highlights it; false when the card refused */
+    /** Read the stored profile for New recipe; a row array does not contain its payload. */
+    private Recipes.PpProfile profileFor(int[] rows) throws NativeException {
+        int pp = rows[R_PP];
+        if (pp == 0 || rows[R_PE] != 0) return null;
+        return PictureProfiles.from(new int[] { pp, rdu(ppSlot(K_GAMMA_MODE, pp)),
+                NativeBackup.readByte(ppSlot(K_BLACK_LEVEL, pp)), NativeBackup.readByte(ppSlot(K_PP_SAT, pp)),
+                NativeBackup.readByte(ppSlot(K_COLOR_PHASE, pp)), NativeBackup.readByte(ppSlot(K_DEPTH_R, pp)),
+                NativeBackup.readByte(ppSlot(K_DEPTH_G, pp)), NativeBackup.readByte(ppSlot(K_DEPTH_B, pp)),
+                NativeBackup.readByte(ppSlot(K_DEPTH_C, pp)), NativeBackup.readByte(ppSlot(K_DEPTH_M, pp)),
+                NativeBackup.readByte(ppSlot(K_DEPTH_Y, pp)), NativeBackup.readByte(ppSlot(K_DETAIL_LVL, pp)) });
+    }
+
+    /** keeps the complete look as a new custom recipe */
     private boolean saveNew(String name, int[] rows) {
         CustomRecipes.Entry e;
-        try { e = CustomRecipes.save(cardDir, CustomRecipes.recipe(name, rows), madeOn(), null); }
+        try { e = CustomRecipes.save(cardDir, CustomRecipes.recipe(name, rows, profileFor(rows)), madeOn(), null); }
         catch (Throwable t) { log(CardLog.FAIL, "save " + name + ": " + t); showToast(Lang.t("custom_save_failed", String.valueOf(t.getMessage())), 0); return false; }
         reloadCustoms();
         follow(name);
         stageRecipe(); applyPreview();
         showToast(Lang.t("custom_created", name, CustomRecipes.path(e.file)), 5000);
-        return true;
-    }
-
-    /** an edit of a custom recipe finished: its file takes the new values */
-    private boolean saveInPlace() {
-        CustomRecipes.Entry e = library.entry(recipe);
-        if (cardDir == null) { showToast(Lang.t("custom_need_card"), 4000); return false; }
-        try { CustomRecipes.save(cardDir, CustomRecipes.recipe(e.recipe.name, edit), madeOn(), e.file); }
-        catch (Throwable t) { log(CardLog.FAIL, "save " + e.recipe.name + ": " + t); showToast(Lang.t("custom_save_failed", String.valueOf(t.getMessage())), 0); return false; }
-        reloadCustoms();
-        showToast(Lang.t("custom_saved", e.recipe.name), 2500);
         return true;
     }
 
@@ -1677,93 +1666,54 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     /** the staged values are not the recipe's own: its edits, saved nowhere yet (the line under the name says so) */
     private boolean edited() { return Params.differsFromRecipe(library.get(recipe), edit); }
 
-    /** edits that would be lost by leaving the recipe: neither saved nor applied — after Apply the camera has them */
-    private boolean editsAtRisk() { return edited() && dirty(); }
-
-    /** goes on with {@code go} — leaving the recipe — after asking, when that would drop edits nothing keeps */
-    private void unlessEditsLost(Runnable go) {
-        if (!editsAtRisk()) { go.run(); return; }
-        afterDiscard = go;
-        openPrompt(P_DISCARD, CustomRecipes.DISCARD_DEFAULT);
-    }
-
     /**
-     * The centre button on the recipe line: pick it. With edits on it, that means going back to the recipe, so ask first —
-     * Discard puts its own values back and picks them; saving, copying and applying edits are the buttons under the chips.
+     * The centre button on the recipe line: pick it immediately (including any chip tweaks the user made).
      */
     private void pick() {
-        if (!edited()) { writeAll(); return; }
-        afterDiscard = new Runnable() { public void run() { stageRecipe(); applyPreview(); writeAll(); } };
-        openPrompt(P_DISCARD, CustomRecipes.DISCARD_DEFAULT);
+        writeAll();
     }
 
-    /** the edit buttons that make sense now: none without edits, or without the full panel to show them on */
-    private int[] actions() {
-        if (!panelUp(overlay) || !edited()) return new int[0];
-        return CustomRecipes.editActions(library.isCustom(recipe), !dirty());
-    }
-
-    /** centre on an edit button */
-    private void doAction(int action) {
-        switch (action) {
-            case CustomRecipes.EDIT_SAVE: if (saveInPlace() && dirty()) writeAll(); break;   // custom only; stored too, unless the camera has it already
-            case CustomRecipes.EDIT_COPY: openName(NAME_COPY); break;
-            case CustomRecipes.EDIT_APPLY: writeAll(); break;
-            case CustomRecipes.EDIT_DISCARD:                         // asks first; then the recipe's own values, written too when the camera had the edits
-                afterDiscard = new Runnable() { public void run() {
-                    boolean applied = !dirty();
-                    stageRecipe(); applyPreview();
-                    if (applied) writeAll();
-                    render();
-                } };
-                openPrompt(P_DISCARD, CustomRecipes.DISCARD_DEFAULT);
-                break;
-        }
-        render();
-    }
-
-    /** the highlight is on the edit buttons and they are on screen — not under the pill, or after the edits went */
-    private boolean onButtons() { return onActions && actions().length > 0; }
-
-    /** the panel's line the highlight is on (Params.LINE_*) */
-    private int line() { return onButtons() ? LINE_ACTIONS : row == 0 ? LINE_RECIPE : LINE_CHIPS; }
-
-    /** UP / DOWN: recipe name → chips → edit buttons (while there are edits) → recipe name */
+    /** UP / DOWN moves between the recipe name and its chips. */
     private void moveLine(int dir) {
-        int to = Params.nextLine(line(), dir, actions().length > 0);
+        int to = Params.nextLine(row == 0 ? LINE_RECIPE : LINE_CHIPS, dir, false);
         if (row != 0) lastChip = row;
-        if (to == LINE_RECIPE) { row = 0; onActions = false; }
-        else if (to == LINE_CHIPS) { row = Params.enterChips(lastChip, edit); onActions = false; }
-        else { row = Params.enterChips(lastChip, edit); onActions = true; actionSel = 0; }   // row stays off the recipe line
+        row = to == LINE_RECIPE ? 0 : Params.enterChips(lastChip, edit);
         render();
     }
 
-    /** the buttons went away (saved, restored, another recipe): the highlight goes back to the chips */
-    private void settleActions(int count) {
-        if (onActions && count == 0) { onActions = false; row = Params.enterChips(lastChip, edit); }
-        if (actionSel >= count) actionSel = Math.max(0, count - 1);
+    // ------------------------------------------------------------ live preview (runtime params, debounced for instant UI)
+    private static final int PREVIEW_DEBOUNCE_MS = 35;
+    private final Runnable deferredPreview = new Runnable() { public void run() { applyPreviewNow(); } };
+
+    private void applyPreview() {
+        handler.removeCallbacks(deferredPreview);
+        handler.postDelayed(deferredPreview, PREVIEW_DEBOUNCE_MS);
     }
 
-    // ------------------------------------------------------------ live preview (runtime params)
-    private void applyPreview() {
+    private void applyPreviewNow() {
+        handler.removeCallbacks(deferredPreview);
         if (camera == null) return;
         try {
-            Camera.Parameters p = camera.getParameters();
+            Camera.Parameters p = cachedParams != null ? cachedParams : camera.getParameters();
+            cachedParams = p;
             Map<String, String> wanted = Params.preview(edit);
             for (Map.Entry<String, String> e : wanted.entrySet()) p.set(e.getKey(), e.getValue());
             camera.setParameters(p);
             previewOk = true;
-            Camera.Parameters back = camera.getParameters();     // what the camera kept: a dropped value throws nothing (#104)
-            Map<String, String> got = new java.util.HashMap<String, String>();
-            for (String k : wanted.keySet()) got.put(k, back.get(k));
-            String dropped = CardLog.previewDropped(wanted, got);
-            if (dropped.length() > 0) logPreview(Recipes.displayName(library.get(recipe)) + ": not kept  " + dropped);
-            String mode = back.get(CardLog.MODE_KEY);              // read anyway: a dial turned with the app open costs nothing more
-            if (mode != null && !mode.equals(lastMode)) { log(CardLog.INFO, "mode " + lastMode + " > " + mode); lastMode = mode; }
-        } catch (Throwable t) { previewOk = false; previewErr = String.valueOf(t.getMessage()); logPreview("parameters refused: " + previewErr); }
+        } catch (Throwable t) { previewOk = false; previewErr = String.valueOf(t.getMessage()); cachedParams = null; logPreview(previewErr); }
     }
 
     // ------------------------------------------------------------ UI
+    private int lastScrolledRow = -1;
+
+    private static String signed(int v) { return (v > 0 ? "+" : "") + v; }
+
+    private static String ppSummary(Recipes.PpProfile p, int pp) {
+        String g = p.mode == Recipes.PP_MODE_CINE ? "CINE" : p.mode == Recipes.PP_MODE_ITU709 ? "709" : p.mode == Recipes.PP_MODE_MOVIE ? "MOVIE" : "STILL";
+        return "PP" + pp + " " + g + " · Blk" + signed(p.black) + " Sat" + signed(p.sat) + " Phs" + signed(p.phase)
+                + " · R" + signed(p.r) + " G" + signed(p.g) + " B" + signed(p.b) + " C" + signed(p.c) + " M" + signed(p.m) + " Y" + signed(p.y);
+    }
+
     private void showToast(String msg, int ms) {
         toast.setText(msg); toast.setVisibility(View.VISIBLE);
         handler.removeCallbacks(hideToast);
@@ -1773,16 +1723,15 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     private void render() {
         Recipes.Recipe r = library.get(recipe);
         boolean dirty = dirty();
+        boolean isEdited = edited();
         String pos = Favorites.wheelPosition(wheelGroup, recipe, favs, library);
         picker.setVisibility(overlay == OV_BROWSER ? View.VISIBLE : View.GONE);
-        sponsor.setText(DevTools.sponsorLine());                     // the README's ask, small, over the live view
-        sponsor.setVisibility(overlay == OV_FULL ? View.VISIBLE : View.GONE);   // Full only; No keys, Label and Hidden hide it
         if (overlay == OV_BROWSER) { panel.setVisibility(View.GONE); mini.setVisibility(View.GONE); picker.set(recipe, browserCol, browserGroup, favs, library, cardDir != null); return; }
         if (panelUp(overlay)) {
             panel.setVisibility(View.VISIBLE); mini.setVisibility(View.GONE);
             name.setText(Recipes.displayName(r));
             name.setTextColor(row == 0 ? ACCENT : WHITE);
-            String original = Recipes.originalName(r);            // a translated name keeps the canonical one under it
+            String original = Lang.current() == Lang.VI ? null : Recipes.originalName(r);
             nameOriginal.setText(original == null ? "" : original);
             nameOriginal.setVisibility(original == null ? View.GONE : View.VISIBLE);
             count.setText(Favorites.wheelCount(wheelGroup, recipe, favs, library));
@@ -1794,40 +1743,42 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
             if (dirty) { badge.setText(Lang.t("state_preview")); badge.setBackgroundResource(R.drawable.badge_warn); }
             else { badge.setText(Lang.t("state_active")); badge.setBackgroundResource(R.drawable.badge_ok); }
             editedBadge.setText(Lang.t("state_edited"));
-            editedBadge.setVisibility(edited() ? View.VISIBLE : View.GONE);
-            String m = Params.metaLine(edit, previewOk ? null : previewErr);   // warnings only: the values are on the chips
+            editedBadge.setVisibility(isEdited ? View.VISIBLE : View.GONE);
+            String m = Params.metaLine(edit, previewOk ? null : previewErr);   // warnings first; else Deep-Color PP readout
+            if (m.isEmpty() && r.ppProfile != null && edit[R_PE] == 0 && edit[R_PP] > 0) {
+                m = ppSummary(r.ppProfile, edit[R_PP]);
+            }
             meta.setText(m);
             meta.setVisibility(m.isEmpty() ? View.GONE : View.VISIBLE);
-            int[] acts = actions();
-            settleActions(acts.length);
-            actionsRow.setVisibility(acts.length > 0 ? View.VISIBLE : View.GONE);
-            for (int i = 0; i < actionBtn.length; i++) {
-                if (i >= acts.length) { actionBtn[i].setVisibility(View.GONE); continue; }
-                boolean on = onActions && i == actionSel;
-                actionBtn[i].setVisibility(View.VISIBLE);
-                actionBtn[i].setText(CustomRecipes.editLabel(acts[i]));
-                actionBtn[i].setBackgroundResource(on ? R.drawable.chip_sel : R.drawable.chip);
-                actionBtn[i].setTextColor(on ? INK : WHITE);
-            }
+            int subVal = storedSub();
+            boolean relayoutChips = false;
             for (int i : ORDER) {
-                chip[i].setVisibility(rowVisible(i) ? View.VISIBLE : View.GONE);
-                boolean sel = i == row && !onActions, ch = rowDirty(i), foc = sel && focus;
+                int wantVis = rowVisible(i) ? View.VISIBLE : View.GONE;
+                if (chip[i].getVisibility() != wantVis) { chip[i].setVisibility(wantVis); relayoutChips = true; }
+                boolean sel = i == row, ch = Params.rowDirty(i, cur, edit, subVal), foc = sel && focus;
                 chip[i].setBackgroundResource(foc ? R.drawable.chip_sel : sel ? R.drawable.chip_hi : R.drawable.chip);
-                chipLabel[i].setText(Params.rowName(i));
+                String lbl = Params.rowName(i);
+                if (!lbl.contentEquals(chipLabel[i].getText())) { chipLabel[i].setText(lbl); chip[i].requestLayout(); relayoutChips = true; }
                 chipLabel[i].setTextColor(foc ? INK : sel ? ACCENT : DIM);
                 chipValue[i].setTextColor(foc ? INK : ch ? ACCENT : WHITE);
-                chipValue[i].setText(Params.fmt(i, edit[i], edit));
+                String val = Params.fmt(i, edit[i], edit);
+                if (!val.contentEquals(chipValue[i].getText())) { chipValue[i].setText(val); chip[i].requestLayout(); relayoutChips = true; }
             }
-            if (row == 0) chipScroll.post(new Runnable() { public void run() { chipScroll.smoothScrollTo(0, 0); } });
-            else {
-                final View c = chip[row];
-                chipScroll.post(new Runnable() { public void run() {
+            if (relayoutChips) chips.requestLayout();
+            if (row != lastScrolledRow) {
+                lastScrolledRow = row;
+                if (row == 0) chipScroll.scrollTo(0, 0);
+                else {
+                    final View c = chip[row];
                     int l = c.getLeft(), rgt = c.getRight(), sx = chipScroll.getScrollX(), w = chipScroll.getWidth();
-                    if (l < sx) chipScroll.smoothScrollTo(l - dp(8), 0); else if (rgt > sx + w) chipScroll.smoothScrollTo(rgt - w + dp(8), 0);
-                } });
+                    if (w > 0) {
+                        if (l < sx) chipScroll.scrollTo(Math.max(0, l - dp(8)), 0);
+                        else if (rgt > sx + w) chipScroll.scrollTo(rgt - w + dp(8), 0);
+                    }
+                }
             }
             hints.setVisibility(overlay == OV_QUIET ? View.GONE : View.VISIBLE);
-            hints.setMode(onActions ? Keys.H_ACTIONS : row == 0 ? HintBar.RECIPE : focus ? HintBar.EDIT : HintBar.CHIPS);
+            hints.setMode(row == 0 ? HintBar.RECIPE : focus ? HintBar.EDIT : HintBar.CHIPS);
         } else if (overlay == OV_PILL) {
             panel.setVisibility(View.GONE); mini.setVisibility(View.VISIBLE);
             mini.setText(Params.miniLine(r, pos, cur, edit, dirty));
@@ -1837,35 +1788,30 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     }
 
     // ------------------------------------------------------------ input
-    /** change the value of the focused chip */
+    /** change the value of the focused chip (renders UI immediately, then updates camera preview) */
     private void stepValue(int dir) {
         if (row == 0) return;
         if (Params.step(edit, row, dir, recipeQuality(library.get(recipe)))) qualityChanged();
-        applyPreview(); render();
+        render(); applyPreview();
     }
 
-    /** left / right on the edit buttons, wrapping */
-    private void moveAction(int dir) { int n = actions().length; if (n > 0) actionSel = (actionSel + n + dir) % n; render(); }
+    /** Fn, or Browse recipes: the brand list, whose highlight previews other recipes */
+    private void browse() { openBrowser(true); }
 
-    /** Fn, or Browse recipes: the brand list, whose highlight previews other recipes — after asking, when that would drop edits */
-    private void browse() { unlessEditsLost(new Runnable() { public void run() { openBrowser(true); } }); }
-
-    /** MENU: out of the app — after asking, when that would drop edits */
-    private void leave() { unlessEditsLost(new Runnable() { public void run() { finish(); } }); }
+    /** MENU: out of the app */
+    private void leave() { finish(); }
 
     /** LEFT/RIGHT inside the chip strip: next / previous visible chip, wrapping */
     private void moveChip(int dir) { row = Params.nextChip(row, dir, edit); lastChip = row; render(); }
 
-    private void setFocus(boolean f) { focus = f && row != 0 && !onButtons(); render(); }
+    private void setFocus(boolean f) { focus = f && row != 0; render(); }
 
     /**
-     * The wheel, or left / right on the recipe line: the next recipe of the group it was last picked from — after asking,
-     * when that would drop edits.
+     * The wheel, or left / right on the recipe line: the next recipe of the group it was last picked from (renders UI first).
      */
     private void nextRecipe(final int dir) {
-        unlessEditsLost(new Runnable() { public void run() {
-            recipe = Favorites.wheel(wheelGroup, recipe, dir, favs, library); showRecipe(); applyPreview(); render();
-        } });
+        recipe = Favorites.wheel(wheelGroup, recipe, dir, favs, library);
+        showRecipe(); render(); applyPreview();
     }
 
     /**
@@ -1875,9 +1821,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     private void nextGroup(int dir) {
         browserGroup = Favorites.nextGroup(browserGroup, dir);
         int land = Favorites.landing(browserGroup, favs, library);
-        if (land >= 0) { recipe = land; showRecipe(); applyPreview(); }
+        if (land >= 0) { recipe = land; showRecipe(); }
         if (browserGroup == Favorites.CUSTOM) reportSkipped();
         render();
+        if (land >= 0) applyPreview();
     }
 
     private void openBrowser(boolean open) {
@@ -1894,7 +1841,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         int to = Favorites.nextIn(browserGroup, recipe, dir, favs, library);
         if (to < 0) return;
         recipe = to;
-        showRecipe(); applyPreview(); render();
+        showRecipe(); render(); applyPreview();
     }
 
     /** the recipe column is not reachable while the Favorites or Custom list is empty */
@@ -1981,22 +1928,30 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     /** whether a hold on the centre button marks a favorite where the user is now */
     private boolean holdMarksFavorite() { return Params.holdMarksFavorite(overlay, row, browserCol); }
 
-    /** the centre button pressed: the short action waits for the release, a hold becomes "favorite" (a custom recipe's options) */
+    /** the centre button pressed: acts immediately on chips/groups where hold has no action; waits for release/hold on recipes */
     private void enterDown(int repeat) {
         if (enter.down(repeat) != Keys.Hold.ARM) return;          // key repeat while held
-        if (holdMarksFavorite()) handler.postDelayed(enterHold, HOLD_MS);
+        if (holdMarksFavorite()) {
+            handler.postDelayed(enterHold, HOLD_MS);
+        } else {
+            enter.fire();
+            runEnterAction();
+        }
     }
 
     /** the centre button released before the hold fired: what ENTER used to do on the press */
     private void enterUp() {
         handler.removeCallbacks(enterHold);
         if (enter.up() != Keys.Hold.SHORT || menuOpen) return;   // a menu opened while it was held: the release is not a pick
+        runEnterAction();
+    }
+
+    private void runEnterAction() {
         switch (Params.enterAction(overlay, row, browserCol)) {
             case ENTER_BROWSER_COLUMN: enterRecipeColumn(); break;
             case ENTER_BROWSER_PICK: pickInBrowser(); break;
             case ENTER_PICK: pick(); break;
             default: {
-                if (onButtons()) { int[] acts = actions(); if (actionSel < acts.length) doAction(acts[actionSel]); break; }
                 setFocus(!focus); break;
             }
         }
@@ -2026,13 +1981,13 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         if (overlay == OV_BROWSER && sc != K_PLAY) return browserKey(sc);
         int step = turn(sc);
         if (step != 0) {                                         // any wheel or dial: along the line the highlight is on
-            if (focus) stepValue(step); else if (onButtons()) moveAction(step); else if (Params.onRecipeLine(overlay, row)) nextRecipe(step); else moveChip(step);
+            if (focus) stepValue(step); else if (Params.onRecipeLine(overlay, row)) nextRecipe(step); else moveChip(step);
             return true;
         }
         switch (sc) {
             case K_LEFT: case K_RIGHT: {
                 int dir = e.getScanCode() == K_RIGHT ? +1 : -1;
-                if (focus) stepValue(dir); else if (onButtons()) moveAction(dir); else if (Params.onRecipeLine(overlay, row)) nextRecipe(dir); else moveChip(dir);
+                if (focus) stepValue(dir); else if (Params.onRecipeLine(overlay, row)) nextRecipe(dir); else moveChip(dir);
                 return true;
             }
             case K_UP: case K_DOWN: {

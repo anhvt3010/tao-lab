@@ -186,4 +186,51 @@ class ParamsWritesTest {
         assertNotEquals(new Write(0x01070175, 1), "01070175=1");
         assertEquals(1, new HashSet<Write>(Arrays.asList(new Write(0x01070175, 1), new Write(0x01070175, 1))).size());
     }
+
+    @Test void classicChromeClearsThePreviousWarmShiftAndExposureInBothStoreCopies() {
+        Map<Integer, Integer> store = factoryStore();
+        store.put(ID_WB_AB, 3); store.put(ID_WB_AB_AWB, 3);
+        store.put(ID_WB_GM, 255); store.put(ID_WB_GM_AWB, 255);
+        store.put(ID_EV, 255); store.put(ID_EV2, 255);
+        int[] cur = load(store);
+        Recipes.Recipe chrome = Fixtures.recipe("Classic Chrome");
+        int[] edit = staged(chrome, cur, Q_FINE);
+        edit[R_PP] = chrome.ppProfile.pp;
+        apply(store, recipeWrites(cur, edit, 0, chrome));
+        for (int id : new int[] { ID_WB_AB, ID_WB_AB_AWB, ID_WB_GM, ID_WB_GM_AWB, ID_EV, ID_EV2 })
+            assertEquals(0, byteAt(store, id), "old tint/exposure left in " + Integer.toHexString(id));
+        assertEquals(0, byteAt(store, ppSlot(K_COLOR_PHASE, edit[R_PP])), "no global PP phase offset");
+        assertEquals(chrome.ppProfile.pp, byteAt(store, ID_PP_NO));
+    }
+
+    @Test void ppApplicationIdentityChangesWhenTheSameNamedRecipeIsRetuned() {
+        Recipes.Recipe chrome = Fixtures.recipe("Classic Chrome");
+        Recipes.PpProfile p = chrome.ppProfile;
+        Recipes.Recipe retuned = new Recipes.Recipe(chrome.group, chrome.name, chrome.style,
+                chrome.sat, chrome.con, chrome.sharp, chrome.wbMode, chrome.kelvin, chrome.ab, chrome.gm,
+                new Recipes.PpProfile(p.pp, p.mode, p.black, p.sat, p.phase + 1,
+                        p.r, p.g, p.b, p.c, p.m, p.y, p.detail));
+        assertNotEquals(ppSignature(chrome, 1), ppSignature(retuned, 1));
+        assertNotEquals(ppSignature(chrome, 1), ppSignature(chrome, 2));
+        assertNotEquals(chrome.name, ppSignature(chrome, 1), "old name-only cache must require reapplication");
+        assertEquals("", ppSignature(Fixtures.recipe("FACTORY (ST)"), 1));
+        assertEquals("", ppSignature(chrome, 0));
+    }
+
+    @Test void recipeWritesIncludesDeepColorPictureProfileRegistersWhenActive() {
+        int[] cur = factoryRows();
+        Recipes.Recipe natura = Fixtures.recipe("Fuji Natura 1600");
+        assertNotNull(natura.ppProfile);
+        int[] edit = staged(natura, cur, Q_FINE);
+        edit[R_PP] = natura.ppProfile.pp;
+        List<Write> ws = recipeWrites(cur, edit, 0, natura);
+        assertTrue(ws.contains(w(ID_PP_NO, 1)));
+        assertTrue(ws.contains(w(ppSlot(K_BLACK_LEVEL, 1), 6)));
+        assertTrue(ws.contains(w(ppSlot(K_DEPTH_G, 1), 5)));
+        assertTrue(ws.contains(w(ppSlot(K_DEPTH_R, 1), 3)));
+        assertTrue(ws.contains(w(ppSlot(K_COLOR_PHASE, 1), -3)));
+        assertTrue(ws.contains(w(ppSlot(K_PP_SAT, 1), -4)));
+        assertTrue(ws.contains(w(ppSlot(K_GAMMA_MODE, 1), Recipes.PP_MODE_CINE)));
+        assertTrue(ws.contains(w(ppSlot(K_DETAIL_LVL, 1), -6)));
+    }
 }

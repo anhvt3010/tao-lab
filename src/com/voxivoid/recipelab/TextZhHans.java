@@ -123,7 +123,6 @@ final class TextZhHans {
         { "custom_skipped_one", "已跳过 %1$s" },
         { "custom_skipped_many", "已跳过 %1$d 个文件——第一个：%2$s" },
         { "custom_created", "%1$s 已保存到存储卡：%2$s" },
-        { "custom_saved", "%1$s 已保存" },
         { "custom_renamed", "已重命名为 %1$s" },
         { "custom_deleted", "已删除 %1$s" },
         { "custom_save_failed", "无法保存到存储卡：%1$s" },

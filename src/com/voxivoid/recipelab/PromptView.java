@@ -17,7 +17,7 @@ import java.util.List;
  * overflow the box are drawn smaller rather than cut.
  */
 public class PromptView extends View {
-    private static final int ACCENT = 0xFFF2B85C, INK = 0xFF1A1208;
+    private static final int ACCENT = 0xFFFF9F1C, INK = 0xFF0E1015;
 
     private final Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG), edge = new Paint(Paint.ANTI_ALIAS_FLAG), title = new Paint(Paint.ANTI_ALIAS_FLAG),
             body = new Paint(Paint.ANTI_ALIAS_FLAG), opt = new Paint(Paint.ANTI_ALIAS_FLAG), pill = new Paint(Paint.ANTI_ALIAS_FLAG), note = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -31,8 +31,8 @@ public class PromptView extends View {
     public PromptView(Context c, AttributeSet a) {
         super(c, a);
         d = c.getResources().getDisplayMetrics().density;
-        bg.setColor(0xF0141414);
-        edge.setColor(0x88F2B85C); edge.setStyle(Paint.Style.STROKE); edge.setStrokeWidth(d);
+        bg.setColor(0xF40D1017);
+        edge.setColor(0x88FF9F1C); edge.setStyle(Paint.Style.STROKE); edge.setStrokeWidth(d);
         title.setColor(0xFFFFFFFF); title.setTextSize(15 * d); title.setFakeBoldText(true);
         body.setColor(0xCCFFFFFF); body.setTextSize(12 * d);
         opt.setTextSize(13 * d); opt.setFakeBoldText(true); opt.setTextAlign(Paint.Align.CENTER);

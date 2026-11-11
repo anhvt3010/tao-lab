@@ -123,7 +123,6 @@ final class TextZhHant {
         { "custom_skipped_one", "已略過 %1$s" },
         { "custom_skipped_many", "已略過 %1$d 個檔案——第一個：%2$s" },
         { "custom_created", "%1$s 已儲存到記憶卡：%2$s" },
-        { "custom_saved", "%1$s 已儲存" },
         { "custom_renamed", "已重新命名為 %1$s" },
         { "custom_deleted", "已刪除 %1$s" },
         { "custom_save_failed", "無法儲存到記憶卡：%1$s" },

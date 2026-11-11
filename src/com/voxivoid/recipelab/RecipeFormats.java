@@ -30,13 +30,15 @@ final class RecipeFormats {
     private RecipeFormats() {}
 
     /** every version the app reads, oldest first; the last is the one it writes */
-    static final RecipeFormat[] ALL = { new RecipeFormatV1(), new RecipeFormatV2() };
+    static final RecipeFormat[] ALL = { new RecipeFormatV1(), new RecipeFormatV2(), new RecipeFormatV3() };
 
     /** the version the app writes: the newest */
     static RecipeFormat current() { return ALL[ALL.length - 1]; }
 
     /** a recipe as a file of the newest version */
-    static String write(Recipes.Recipe r, String madeOn) { return current().write(r, madeOn); }
+    static String write(Recipes.Recipe r, String madeOn) {
+        return (r.ppProfile == null ? ALL[1] : current()).write(r, madeOn);
+    }
 
     /** a file's text read by the version it names; {@code fileName} names a recipe whose file has no name line */
     static CustomRecipes.Parsed parse(String text, String fileName) { return parse(text, fileName, ALL); }

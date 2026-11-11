@@ -35,7 +35,7 @@ final class CardLog {
     /** the app's folder at the root of the card: RECIPE-LAB would be ten characters, past what the card takes */
     static final String DIR = "RECIPLAB";
     static final String SUB = "LOGS";
-    static final String LOG = "LOG.TXT", DIFF = "DIFF.TXT", KEYS = "KEYS.TXT", LOCKS = "LOCKS.TXT", PARAMS = "PARAMS.TXT";
+    static final String LOG = "LOG.TXT", DIFF = "DIFF.TXT", KEYS = "KEYS.TXT", LOCKS = "LOCKS.TXT", PARAMS = "PARAMS.TXT", CRASH_FILE = "CRASH.TXT";
     /** about a thousand lines; the rolled-over file keeps as many again */
     static final int MAX_BYTES = 64 * 1024;
 
@@ -208,6 +208,7 @@ final class CardLog {
                 .append("saved ").append(now).append('\n').append(header).append('\n').append(app).append('\n')
                 .append("STATE ").append(state).append('\n');
         section(sb, "LOG", tail(new File(logs, older(LOG)), new File(logs, LOG), REPORT_LOG));
+        section(sb, "CRASH", tail(null, new File(logs, CRASH_FILE), REPORT_TOOL * 3));
         section(sb, "LOCKS", tail(null, new File(logs, LOCKS), REPORT_TOOL));
         section(sb, "DIFF", tail(null, new File(logs, DIFF), REPORT_TOOL));
         section(sb, "KEYS", tail(null, new File(logs, KEYS), REPORT_TOOL));

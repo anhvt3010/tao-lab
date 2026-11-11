@@ -124,7 +124,6 @@ final class TextKo {
         { "custom_skipped_one", "%1$s 건너뜀" },
         { "custom_skipped_many", "파일 %1$d개 건너뜀 — 첫 번째: %2$s" },
         { "custom_created", "%1$s 메모리 카드에 %2$s(으)로 저장됨" },
-        { "custom_saved", "%1$s 저장됨" },
         { "custom_renamed", "%1$s(으)로 이름 바뀜" },
         { "custom_deleted", "%1$s 삭제됨" },
         { "custom_save_failed", "메모리 카드에 저장할 수 없음: %1$s" },

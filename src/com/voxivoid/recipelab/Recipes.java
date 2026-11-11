@@ -15,20 +15,63 @@ package com.voxivoid.recipelab;
  * sub     : effect sub-parameter — Soft High-key tint 0 blue / 1 pink / 2 green, Toy tone 0..4, Partial hue 0..3, Posterization 0 colour / 1 b&w
  */
 public class Recipes {
+    /**
+     * Sony A6300 Deep-Color Picture Profile hardware configuration (written to 0x010701d0 + 10 * k + pp).
+     * Controls Black Level, Gamma/Color Mode, PP Saturation, Color Phase (skintone axis), 6-axis Color Depth
+     * (B, C, G, M, R, Y), and Detail Level (organic film edge softness).
+     */
+    public static final class PpProfile {
+        public final int pp, mode, black, sat, phase, r, g, b, c, m, y, detail;
+        private final String valuesKey;
+        public PpProfile(int pp, int mode, int black, int sat, int phase,
+                         int r, int g, int b, int c, int m, int y, int detail) {
+            this.pp = pp; this.mode = mode; this.black = black; this.sat = sat; this.phase = phase;
+            this.r = r; this.g = g; this.b = b; this.c = c; this.m = m; this.y = y; this.detail = detail;
+            valuesKey = mode + "," + black + "," + sat + "," + phase + "," + r + "," + g + "," + b
+                    + "," + c + "," + m + "," + y + "," + detail;
+        }
+    }
+
+    public static final int PP_MODE_MOVIE = 1, PP_MODE_STILL = 2, PP_MODE_CINE = 3, PP_MODE_PRO = 3, PP_MODE_ITU709 = 4;
+
+    private static PpProfile pp(int mode, int black, int sat, int phase, int r, int g, int b, int c, int m, int y, int detail) {
+        return new PpProfile(Params.PP_DEFAULT_SLOT, mode, black, sat, phase, r, g, b, c, m, y, detail);
+    }
+
     public static class Recipe {
         public final int group; public final String name; public final int style, sat, con, sharp, wbMode, kelvin, ab, gm, pe, ev, dro, sub;
+        public final PpProfile ppProfile;
+        private final String[] ppKeys;
         Recipe(int group, String name, int style, int sat, int con, int sharp, int wbMode, int kelvin, int ab, int gm) {
-            this(group, name, style, sat, con, sharp, wbMode, kelvin, ab, gm, 0, 0, DRO_AUTO);
+            this(group, name, style, sat, con, sharp, wbMode, kelvin, ab, gm, 0, 0, DRO_AUTO, 0, null);
+        }
+        Recipe(int group, String name, int style, int sat, int con, int sharp, int wbMode, int kelvin, int ab, int gm, PpProfile ppProfile) {
+            this(group, name, style, sat, con, sharp, wbMode, kelvin, ab, gm, 0, 0, DRO_AUTO, 0, ppProfile);
         }
         Recipe(int group, String name, int style, int sat, int con, int sharp, int wbMode, int kelvin, int ab, int gm, int pe, int ev, int dro) {
-            this(group, name, style, sat, con, sharp, wbMode, kelvin, ab, gm, pe, ev, dro, 0);
+            this(group, name, style, sat, con, sharp, wbMode, kelvin, ab, gm, pe, ev, dro, 0, null);
+        }
+        Recipe(int group, String name, int style, int sat, int con, int sharp, int wbMode, int kelvin, int ab, int gm, int pe, int ev, int dro, PpProfile ppProfile) {
+            this(group, name, style, sat, con, sharp, wbMode, kelvin, ab, gm, pe, ev, dro, 0, ppProfile);
         }
         Recipe(int group, String name, int style, int sat, int con, int sharp, int wbMode, int kelvin, int ab, int gm, int pe, int ev, int dro, int sub) {
+            this(group, name, style, sat, con, sharp, wbMode, kelvin, ab, gm, pe, ev, dro, sub, null);
+        }
+        Recipe(int group, String name, int style, int sat, int con, int sharp, int wbMode, int kelvin, int ab, int gm, int pe, int ev, int dro, int sub, PpProfile ppProfile) {
             this.sub = sub;
             this.group = group; this.name = name; this.style = style; this.sat = sat; this.con = con; this.sharp = sharp;
             this.wbMode = wbMode; this.kelvin = kelvin; this.ab = ab; this.gm = gm; this.pe = pe; this.ev = ev; this.dro = dro;
+            this.ppProfile = ppProfile;
+            this.ppKeys = ppProfile == null ? null : new String[10];
+        }
+        /** At most one string per selected PP slot, instead of formatting write lists on every redraw. */
+        String ppKey(int pp) {
+            if (ppKeys == null || pe != 0 || pp < 1 || pp > 9) return "";
+            if (ppKeys[pp] == null) ppKeys[pp] = name + ":" + pp + ":" + ppProfile.valuesKey;
+            return ppKeys[pp];
         }
         public boolean isEffect() { return pe != 0; }
+        public boolean hasPictureProfile() { return ppProfile != null; }
         /** a recipe the user made, kept on the memory card ({@link CustomRecipes}), rather than one of the table below */
         public boolean isCustom() { return group == CUSTOM; }
         /** one-line summary for lists, in the display language: "Neutral  -4/-1  A1" */
@@ -117,79 +160,81 @@ public class Recipes {
         new Recipe(SONY,  "Sony FL (film-like)",                 NEUTRAL, -3, -1,  0, AUTO, 0,     1,  0),
         new Recipe(SONY,  "Sony IN (instant)",                   NEUTRAL, -3, -3,  0, AUTO, 0,     0, -1),
         new Recipe(SONY,  "Sony SH (soft high-key)",             LIGHT,   -2, -2,  0, AUTO, 0,     1,  0,  5,  3, 6),
-        // ---- Fujifilm simulations
-        new Recipe(FSIM,  "Provia",                              STD,      1,  0,  0, AUTO, 0,     0,  0,  0,  0, 6),
-        new Recipe(FSIM,  "Velvia",                              VIVID,    3,  2,  0, AUTO, 0,     0,  0),
-        new Recipe(FSIM,  "Astia",                               PORTRAIT, 0, -1,  0, AUTO, 0,     1,  0,  0,  1, 6),
-        new Recipe(FSIM,  "Classic Chrome",                      STD,     -1,  2,  0, AUTO, 0,     3,  1,  0, -1, 6),   // golden with muted blues; Neutral -3 A2 came out grey-beige
-        new Recipe(FSIM,  "Classic Negative",                    STD,     -3,  3,  1, AUTO, 0,    -1,  1,  0,  0, 6),
-        new Recipe(FSIM,  "Nostalgic Neg",                       STD,      1,  0,  0, AUTO, 0,     3,  0,  0,  0, 6),   // amber and saturated; Retro Photo washed it out
-        new Recipe(FSIM,  "Reala Ace",                           STD,      0,  1,  0, AUTO, 0,     0,  0),
-        new Recipe(FSIM,  "Pro Neg Std",                         PORTRAIT,-2, -1,  0, AUTO, 0,     0,  0),
-        new Recipe(FSIM,  "Pro Neg Hi",                          PORTRAIT,-2,  1,  0, AUTO, 0,     0,  0),
-        new Recipe(FSIM,  "Eterna",                              NEUTRAL, -3, -2, -1, AUTO, 0,     0,  0,  0, -1, 3),
-        new Recipe(FSIM,  "Eterna Bleach Bypass",                NEUTRAL, -3,  3,  0, AUTO, 0,     0,  0,  0, -1, DRO_OFF),   // the store keeps sat -3 at most, so DRO off carries the rest
+        // ---- Fujifilm simulations (Deep-Color Picture Profile 6-axis Color Depth + Color Phase + Gamma)
+        new Recipe(FSIM,  "Provia",                              STD,      1,  0,  0, AUTO, 0,     0,  0,  0,  0, 6, pp(PP_MODE_STILL, -1,  +4, -1, +1, +1, +2, +1,  0, -1, -2)),
+        new Recipe(FSIM,  "Velvia",                              VIVID,    3,  2,  0, AUTO, 0,     0,  0,            pp(PP_MODE_STILL, -5, +14, -1, +4, +4, +5, +3, +2, +2, -1)),
+        new Recipe(FSIM,  "Astia",                               PORTRAIT, 0, -1,  0, AUTO, 0,     1,  0,  0,  1, 6, pp(PP_MODE_STILL, +2,  +3, -2, -2, +1, +2, +2, -2, -2, -3)),
+        // A6300 trial: neutral WB shift and PP phase; do not bake a warm cast or underexposure into the look.
+        // The remaining PP values are provisional, not a measured Fujifilm colour transform (see docs/CLASSIC_CHROME.md).
+        new Recipe(FSIM,  "Classic Chrome",                      STD,     -1,  2,  0, AUTO, 0,     0,  0,  0,  0, 6, pp(PP_MODE_CINE,  -3,  -8,  0, +2, +4, +3, -3, -2, +2, -3)),
+        new Recipe(FSIM,  "Classic Negative",                    STD,     -3,  3,  1, AUTO, 0,    -1,  1,  0,  0, 6, pp(PP_MODE_CINE,  +4,  -4, -2, +4, +5, -2, +3, -3, -2, -4)),
+        new Recipe(FSIM,  "Nostalgic Neg",                       STD,      1,  0,  0, AUTO, 0,     3,  0,  0,  0, 6, pp(PP_MODE_CINE,  +3,  +5, -3, +3, +2, -2, -2, +1, +4, -4)),   // amber and saturated; Retro Photo washed it out
+        new Recipe(FSIM,  "Reala Ace",                           STD,      0,  1,  0, AUTO, 0,     0,  0,            pp(PP_MODE_STILL, -2,  +2, -1, +1, +2, +2, +1, -1, -1, -2)),
+        new Recipe(FSIM,  "Pro Neg Std",                         PORTRAIT,-2, -1,  0, AUTO, 0,     0,  0,            pp(PP_MODE_CINE,  +3,  -5, -2, -2,  0, +1, +1, -2, -2, -4)),
+        new Recipe(FSIM,  "Pro Neg Hi",                          PORTRAIT,-2,  1,  0, AUTO, 0,     0,  0,            pp(PP_MODE_STILL, -2,  -3, -2, -1, +2, +2, +1, -2, -2, -3)),
+        new Recipe(FSIM,  "Eterna",                              NEUTRAL, -3, -2, -1, AUTO, 0,     0,  0,  0, -1, 3, pp(PP_MODE_CINE,  +5, -12, +1, +1, +3, +2, +3, -2, -1, -5)),
+        new Recipe(FSIM,  "Eterna Bleach Bypass",                NEUTRAL, -3,  3,  0, AUTO, 0,     0,  0,  0, -1, DRO_OFF, pp(PP_MODE_CINE, -6, -22, +2, +3, +4, +3, +2, 0, +2, -2)),   // the store keeps sat -3 at most, so DRO off carries the rest
         new Recipe(FSIM,  "Acros",                               MONO,     0,  1,  1, AUTO, 0,     0,  0),
         new Recipe(FSIM,  "Acros +Ye (yellow filter)",           MONO,     0,  1,  1, K,    4000,  0,  0),
         new Recipe(FSIM,  "Acros +R (red filter)",               MONO,     0,  0,  0, K,    2500,  0,  0,  7,  0, 6),   // HC Mono: deep blacks, dramatic sky
         new Recipe(FSIM,  "Acros +G (green filter)",             MONO,     0,  1,  1, K,    5600,  0,  4),
         new Recipe(FSIM,  "Sepia",                               SEPIA,    0,  0,  0, AUTO, 0,     0,  0),
         // ---- Fujifilm film stocks
-        new Recipe(FFILM, "Fuji Pro 400H",                       LIGHT,   -2, -2,  0, AUTO, 0,    -1,  1,  0,  2, 6),   // cool pastel; the high-key green tint was a green wash
-        new Recipe(FFILM, "Fuji Fortia 50",                      VIVID,    3,  2,  0, AUTO, 0,    -1,  0,  0, -1, 6),   // M1 on top went magenta
-        new Recipe(FFILM, "Fuji Superia 400",                    STD,      1,  1,  0, AUTO, 0,     1,  1,  0,  1, 6),
-        new Recipe(FFILM, "Fuji C200",                           STD,      0,  0,  0, AUTO, 0,    -1,  1),
-        new Recipe(FFILM, "Fuji Natura 1600",                    PORTRAIT,-2, -2,  0, AUTO, 0,     1,  0,  0,  1, 6),
+        new Recipe(FFILM, "Fuji Pro 400H",                       LIGHT,   -2, -2,  0, AUTO, 0,    -1,  1,  0,  2, 6, pp(PP_MODE_CINE,  +5,  -3, -1, -2, +2, -1, -3, -2, -3, -4)),   // cool pastel; the high-key green tint was a green wash
+        new Recipe(FFILM, "Fuji Fortia 50",                      VIVID,    3,  2,  0, AUTO, 0,    -1,  0,  0, -1, 6, pp(PP_MODE_STILL, -4, +16, -2, +5, +3, +5, +2, +4, +3, -1)),   // M1 on top went magenta
+        new Recipe(FFILM, "Fuji Superia 400",                    STD,      1,  1,  0, AUTO, 0,     1,  1,  0,  1, 6, pp(PP_MODE_STILL, +2,  +4, -2, +2, +5, +2, +2, +3, -1, -4)),
+        new Recipe(FFILM, "Fuji C200",                           STD,      0,  0,  0, AUTO, 0,    -1,  1,            pp(PP_MODE_STILL, +2,  +2, -1, +2, +3, +1, +2,  0, -1, -3)),
+        new Recipe(FFILM, "Fuji Natura 1600",                    PORTRAIT,-2, -2,  0, AUTO, 0,     1,  0,  0,  1, 6, pp(PP_MODE_CINE,  +6,  -4, -3, +3, +5, +1, +2, +2, -3, -6)),
         // ---- Kodak
-        new Recipe(KODAK, "Kodak Portra 160",                    PORTRAIT,-3, -2,  0, AUTO, 0,     1, -1,  0,  2, 6),   // warm pastel with a touch of magenta
-        new Recipe(KODAK, "Kodak Portra 400",                    PORTRAIT,-1, -1,  0, AUTO, 0,     3,  1,  0,  2, 6),   // golden, soft
-        new Recipe(KODAK, "Kodak Portra 800",                    PORTRAIT,-2, -2,  0, AUTO, 0,     1,  1,  0,  1, 6),   // matte, faded warm
-        new Recipe(KODAK, "Kodak Gold 200",                      STD,      2,  1,  0, AUTO, 0,     3,  1,  0,  1, 6),
-        new Recipe(KODAK, "Kodak Ultra Max 400",                 STD,      0,  0,  0, AUTO, 0,     0,  1,  0,  1, 6),
-        new Recipe(KODAK, "Kodak Color Plus 200",                STD,      1,  1,  0, AUTO, 0,     2,  1,  0,  1, 6),
-        new Recipe(KODAK, "Kodak Ektar 100",                     STD,      3,  1,  1, AUTO, 0,     0,  0,  0, -1, 6),
-        new Recipe(KODAK, "Kodak Ektachrome E100",               CLEAR,    3,  1,  0, AUTO, 0,    -1,  0,  0, -1, 6),
-        new Recipe(KODAK, "Kodachrome 64",                       DEEP,     3,  2,  1, AUTO, 0,    -1,  0,  0, -1, 6),   // M1 on Deep went magenta; the reference is cool-neutral
-        new Recipe(KODAK, "Kodak Vision3 500T (daylight)",       NEUTRAL, -1,  0,  0, K,    3200,  0,  0,  0,  1, 3),
-        new Recipe(KODAK, "Kodak Vision 200T (Asteroid City)",   NEUTRAL, -2, -3,  0, K,    5000,  2,  3,  0,  1, 3),   // yellow-green pastel, teal sky; Retro Photo washed it out
+        new Recipe(KODAK, "Kodak Portra 160",                    PORTRAIT,-3, -2,  0, AUTO, 0,     1, -1,  0,  2, 6, pp(PP_MODE_CINE,  +4,  -4, -2, -2, +1, +1, -1, -2, -3, -4)),   // warm pastel with a touch of magenta
+        new Recipe(KODAK, "Kodak Portra 400",                    PORTRAIT,-1, -1,  0, AUTO, 0,     3,  1,  0,  2, 6, pp(PP_MODE_CINE,  +4,  +3, -3, -2, +2, +2, -2, -2, -4, -4)),   // golden, soft
+        new Recipe(KODAK, "Kodak Portra 800",                    PORTRAIT,-2, -2,  0, AUTO, 0,     1,  1,  0,  1, 6, pp(PP_MODE_CINE,  +6,  +5, -3, -1, +2, +3, -1, -1, -3, -5)),   // matte, faded warm
+        new Recipe(KODAK, "Kodak Gold 200",                      STD,      2,  1,  0, AUTO, 0,     3,  1,  0,  1, 6, pp(PP_MODE_STILL, +2,  +8, -3, +2, +1, +3, -2, -1, -4, -3)),
+        new Recipe(KODAK, "Kodak Ultra Max 400",                 STD,      0,  0,  0, AUTO, 0,     0,  1,  0,  1, 6, pp(PP_MODE_STILL, +1,  +9, -2, +3, +2, +4, +1,  0, -2, -3)),
+        new Recipe(KODAK, "Kodak Color Plus 200",                STD,      1,  1,  0, AUTO, 0,     2,  1,  0,  1, 6, pp(PP_MODE_CINE,  +3,  +4, -2, +2, +1, +1, -2, -1, -3, -4)),
+        new Recipe(KODAK, "Kodak Ektar 100",                     STD,      3,  1,  1, AUTO, 0,     0,  0,  0, -1, 6, pp(PP_MODE_STILL, -4, +12, -2, +4, +3, +5, +4, +1, +1, -2)),
+        new Recipe(KODAK, "Kodak Ektachrome E100",               CLEAR,    3,  1,  0, AUTO, 0,    -1,  0,  0, -1, 6, pp(PP_MODE_STILL, -3,  +8, +1, +2, +2, +4, +4, -1, -1, -2)),
+        new Recipe(KODAK, "Kodachrome 64",                       DEEP,     3,  2,  1, AUTO, 0,    -1,  0,  0, -1, 6, pp(PP_MODE_STILL, -5,  +6, -1, +5, +3, +4, +2, +1, +3, -2)),   // M1 on Deep went magenta; the reference is cool-neutral
+        new Recipe(KODAK, "Kodak Vision3 500T (daylight)",       NEUTRAL, -1,  0,  0, K,    3200,  0,  0,  0,  1, 3, pp(PP_MODE_CINE,  +4,  -4, +2, +2, +3, +4, +4, -1, -2, -5)),
+        new Recipe(KODAK, "Kodak Vision 200T (Asteroid City)",   NEUTRAL, -2, -3,  0, K,    5000,  2,  3,  0,  1, 3, pp(PP_MODE_CINE,  +6,  -6, +4, -2, -1, -2, -4, -2, -4, -5)),   // yellow-green pastel, teal sky; Retro Photo washed it out
         new Recipe(KODAK, "Kodak Tri-X 400",                     MONO,     0,  2,  2, AUTO, 0,     0,  0,  0,  1, 6),
         new Recipe(KODAK, "Kodak T-Max",                         MONO,     0,  2,  3, AUTO, 0,     0,  0,  0,  0, 6),
         new Recipe(KODAK, "Kodak Tri-X 1600 (pushed)",           MONO,     0,  0,  0, AUTO, 0,     0,  0,  7,  1, 6),   // HC Mono
         // ---- Cine
-        new Recipe(CINE,  "Cinestill 50D (Blue Velvet)",         STD,     -2, -1,  0, K,    5500, -1, -1),   // faded, near-neutral, a touch cool and magenta
-        new Recipe(CINE,  "Cinestill 800T",                      NEUTRAL,  0,  0,  0, K,    3200,  0, -1,  0,  1, 6),
-        new Recipe(CINE,  "Classic Cinema",                      STD,      0, -1,  0, K,    6000,  2,  0,  0,  0, 3),   // golden and saturated, not muted
-        new Recipe(CINE,  "Rec709 Video (flat-ish)",             NEUTRAL, -2, -2,  0, AUTO, 0,     0,  0,  0,  0, 5),
+        new Recipe(CINE,  "Cinestill 50D (Blue Velvet)",         STD,     -2, -1,  0, K,    5500, -1, -1,            pp(PP_MODE_CINE,  +3,  -4, -1, +2, +2, +3, +3, -1, -2, -4)),   // faded, near-neutral, a touch cool and magenta
+        new Recipe(CINE,  "Cinestill 800T",                      NEUTRAL,  0,  0,  0, K,    3200,  0, -1,  0,  1, 6, pp(PP_MODE_CINE,  +5,  +4, +2, +4, +2, +4, +5, +1, -2, -6)),
+        new Recipe(CINE,  "Classic Cinema",                      STD,      0, -1,  0, K,    6000,  2,  0,  0,  0, 3, pp(PP_MODE_CINE,  +2,  +3, -2, +3, +3, +4, +4,  0, +2, -4)),   // golden and saturated, not muted
+        new Recipe(CINE,  "Rec709 Video (flat-ish)",             NEUTRAL, -2, -2,  0, AUTO, 0,     0,  0,  0,  0, 5, pp(PP_MODE_ITU709,+8, -10,  0,  0,  0,  0,  0,  0,  0, -5)),
         // ---- Ricoh GR image controls
-        new Recipe(RICOH, "GR Positive Film",                    STD,      3,  2,  0, AUTO, 0,     2,  0,  0, -1, 6),
-        new Recipe(RICOH, "GR Negative Film",                    NEUTRAL, -2,  1,  0, AUTO, 0,    -1,  1,  0,  1, 6),
-        new Recipe(RICOH, "GR Bleach Bypass",                    NEUTRAL, -3,  3,  1, AUTO, 0,     0,  0,  0,  0, DRO_OFF),   // the store keeps sat -3 at most, so DRO off carries the rest
+        new Recipe(RICOH, "GR Positive Film",                    STD,      3,  2,  0, AUTO, 0,     2,  0,  0, -1, 6, pp(PP_MODE_STILL, -5, +10, -2, +4, +3, +4, +2, +2, +1, -2)),
+        new Recipe(RICOH, "GR Negative Film",                    NEUTRAL, -2,  1,  0, AUTO, 0,    -1,  1,  0,  1, 6, pp(PP_MODE_CINE,  +4,  -4, -1, +1, +2, +1, +1, -2, -2, -3)),
+        new Recipe(RICOH, "GR Bleach Bypass",                    NEUTRAL, -3,  3,  1, AUTO, 0,     0,  0,  0,  0, DRO_OFF, pp(PP_MODE_CINE, -6, -20, +1, +3, +3, +3, +2, 0, +1, -1)),   // the store keeps sat -3 at most, so DRO off carries the rest
         new Recipe(RICOH, "GR Retro",                            STD,     -3, -1,  0, AUTO, 0,     3, -1,  4,  0, 6),
-        new Recipe(RICOH, "GR Cross Process",                    VIVID,    2,  2,  0, AUTO, 0,    -2,  4),
+        new Recipe(RICOH, "GR Cross Process",                    VIVID,    2,  2,  0, AUTO, 0,    -2,  4,            pp(PP_MODE_STILL, -4, +12, +4, +3, +5, +4, -3, +3, -3, -2)),
         new Recipe(RICOH, "GR Hi-Contrast B&W",                  MONO,     0,  3,  1, AUTO, 0,     0,  0,  7,  0, 6),
         new Recipe(RICOH, "GR Hard Monotone",                    MONO,     0,  2,  2, AUTO, 0,     0,  0),
         new Recipe(RICOH, "GR Soft Monotone",                    MONO,     0, -2, -1, AUTO, 0,     0,  0),
         // ---- Leica
-        new Recipe(LEICA, "Leica Contemporary",                  STD,      1,  1,  0, AUTO, 0,     0,  0),
-        new Recipe(LEICA, "Leica Classic",                       STD,     -1,  2,  0, AUTO, 0,     1,  0),
-        new Recipe(LEICA, "Leica Eternal",                       NEUTRAL, -3, -1,  0, AUTO, 0,     1,  0,  0,  0, 3),
+        new Recipe(LEICA, "Leica Contemporary",                  STD,      1,  1,  0, AUTO, 0,     0,  0,            pp(PP_MODE_STILL, -2,  +2, -1, +2, +2, +3, +1,  0, -1, -2)),
+        new Recipe(LEICA, "Leica Classic",                       STD,     -1,  2,  0, AUTO, 0,     1,  0,            pp(PP_MODE_CINE,  -5,  -4, -2, +4, +3, +4, +2, +1, +2, -3)),
+        new Recipe(LEICA, "Leica Eternal",                       NEUTRAL, -3, -1,  0, AUTO, 0,     1,  0,  0,  0, 3, pp(PP_MODE_CINE,  -4,  +8, -2, +5, +4, +5, +3, +2, +2, -2)),
         new Recipe(LEICA, "Leica Monochrom",                     MONO,     0,  2,  1, AUTO, 0,     0,  0),
         // ---- Hasselblad
-        new Recipe(HASSEL,"Hasselblad HNCS Natural",             NEUTRAL, -1, -1,  0, AUTO, 0,     0,  0),
+        new Recipe(HASSEL,"Hasselblad HNCS Natural",             NEUTRAL, -1, -1,  0, AUTO, 0,     0,  0,            pp(PP_MODE_STILL, +1,   0, -2, -1, +1, +1, +1, -2, -2, -3)),
         // ---- Canon / Nikon
-        new Recipe(CANIK, "Canon Standard",                      STD,      1,  1,  0, AUTO, 0,     1, -1),
-        new Recipe(CANIK, "Canon Portrait",                      PORTRAIT, 0,  0, -1, AUTO, 0,     1, -1),
-        new Recipe(CANIK, "Canon Faithful",                      NEUTRAL,  0,  0,  0, AUTO, 0,     0,  0),
-        new Recipe(CANIK, "Nikon Flat",                          NEUTRAL, -3, -3, -1, AUTO, 0,     0,  0,  0,  0, 5),
-        new Recipe(CANIK, "Nikon Vivid",                         VIVID,    1,  1,  1, AUTO, 0,     0,  0),
+        new Recipe(CANIK, "Canon Standard",                      STD,      1,  1,  0, AUTO, 0,     1, -1,            pp(PP_MODE_STILL, -1,  +5, -2, +1,  0, +1,  0, -2, -2, -2)),
+        new Recipe(CANIK, "Canon Portrait",                      PORTRAIT, 0,  0, -1, AUTO, 0,     1, -1,            pp(PP_MODE_STILL, +3,  +4, -4, -3,  0, +1, -1, -4, -3, -4)),
+        new Recipe(CANIK, "Canon Faithful",                      NEUTRAL,  0,  0,  0, AUTO, 0,     0,  0,            pp(PP_MODE_STILL,  0,   0, -1,  0,  0, +1,  0, -1, -1, -2)),
+        new Recipe(CANIK, "Nikon Flat",                          NEUTRAL, -3, -3, -1, AUTO, 0,     0,  0,  0,  0, 5, pp(PP_MODE_CINE,  +8, -12,  0, -1, -1, -1, -1, -1, -1, -5)),
+        new Recipe(CANIK, "Nikon Vivid",                         VIVID,    1,  1,  1, AUTO, 0,     0,  0,            pp(PP_MODE_STILL, -3, +10,  0, +2, +3, +3, +2, +1, +1, -1)),
         // ---- Panasonic / Olympus
         new Recipe(PANOLY,"Pana L.Monochrome D",                 MONO,     0,  3,  1, AUTO, 0,     0,  0),
-        new Recipe(PANOLY,"Pana L.ClassicNeo",                   NEUTRAL, -3, -1,  0, AUTO, 0,     2,  0,  0,  1, 6),
-        new Recipe(PANOLY,"Olympus Pop Art",                     VIVID,    3,  3,  0, AUTO, 0,     0,  0),
-        new Recipe(PANOLY,"Olympus Pale & Light",                LIGHT,   -3, -2,  0, AUTO, 0,     0,  0,  0,  2, 6),
+        new Recipe(PANOLY,"Pana L.ClassicNeo",                   NEUTRAL, -3, -1,  0, AUTO, 0,     2,  0,  0,  1, 6, pp(PP_MODE_CINE,  +4,  -6, -1, +2, +2, +3, +3, -1, -2, -4)),
+        new Recipe(PANOLY,"Olympus Pop Art",                     VIVID,    3,  3,  0, AUTO, 0,     0,  0,            pp(PP_MODE_STILL, -4, +18, -1, +4, +4, +5, +3, +3, +2, -1)),
+        new Recipe(PANOLY,"Olympus Pale & Light",                LIGHT,   -3, -2,  0, AUTO, 0,     0,  0,  0,  2, 6, pp(PP_MODE_CINE,  +7, -10, -2, -3, -2, -2, -3, -3, -3, -4)),
         // ---- Other stocks
-        new Recipe(OTHER, "Agfa Vista 200",                      STD,      2,  1,  0, AUTO, 0,     2, -1,  0,  1, 6),
-        new Recipe(OTHER, "Agfa Ultra 100",                      VIVID,    3,  1,  0, AUTO, 0,     0,  0),
+        new Recipe(OTHER, "Agfa Vista 200",                      STD,      2,  1,  0, AUTO, 0,     2, -1,  0,  1, 6, pp(PP_MODE_STILL, +1,  +8, -2, +4, +3, +2, +1,  0, -2, -3)),
+        new Recipe(OTHER, "Agfa Ultra 100",                      VIVID,    3,  1,  0, AUTO, 0,     0,  0,            pp(PP_MODE_STILL, -3, +16, -2, +5, +4, +5, +3, +2, +2, -2)),
         new Recipe(OTHER, "Polaroid / Instax",                   STD,     -3, -2,  0, AUTO, 0,     1, -2,  4,  1, 6),
         // ---- Ilford
         new Recipe(ILFORD,"Ilford HP5",                          MONO,     0,  1,  0, AUTO, 0,     0,  0,  0,  1, 6),

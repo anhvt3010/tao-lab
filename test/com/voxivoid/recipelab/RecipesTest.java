@@ -78,6 +78,19 @@ class RecipesTest {
             String[] sub = Recipes.subValues(r.pe);
             if (sub == null) assertEquals(0, r.sub, n + ": sub set on an effect without one");
             else assertTrue(r.sub >= 0 && r.sub < sub.length, n + ": sub " + r.sub + " outside " + sub.length + " values");
+            if (r.ppProfile != null) {
+                assertEquals(0, r.pe, n + ": Picture Profile cannot be combined with a Picture Effect");
+                assertNotEquals(Recipes.MONO, r.style, n + ": Picture Profile should not be set on a B&W recipe");
+                assertNotEquals(Recipes.SEPIA, r.style, n + ": Picture Profile should not be set on a Sepia recipe");
+                Recipes.PpProfile p = r.ppProfile;
+                assertTrue(p.pp >= 1 && p.pp <= 9, n + ": pp slot " + p.pp);
+                assertTrue(p.mode >= 1 && p.mode <= 4, n + ": pp mode " + p.mode);
+                assertTrue(p.black >= -15 && p.black <= 15, n + ": pp black " + p.black);
+                assertTrue(p.sat >= -32 && p.sat <= 32, n + ": pp sat " + p.sat);
+                assertTrue(p.phase >= -7 && p.phase <= 7, n + ": pp phase " + p.phase);
+                for (int d : new int[] { p.r, p.g, p.b, p.c, p.m, p.y, p.detail })
+                    assertTrue(d >= -7 && d <= 7, n + ": pp depth/detail " + d);
+            }
         }
     }
 

@@ -91,16 +91,28 @@ final class CustomRecipes {
      * The staged rows as a custom recipe. A white balance other than auto or kelvin — a preset set in the camera's own
      * menu — is kept as "keep", which leaves the camera's alone; the sub-setting only counts for an effect that has one.
      */
-    static Recipes.Recipe recipe(String name, int[] rows) {
+    private static Recipes.Recipe fromRows(String name, int[] rows) {
         int wb = rows[R_WBMODE] == WB_AUTO || rows[R_WBMODE] == WB_KELVIN ? rows[R_WBMODE] : 0, pe = rows[R_PE];
         return new Recipes.Recipe(Recipes.CUSTOM, name, rows[R_STYLE], rows[R_SAT], rows[R_CON], rows[R_SHARP],
                 wb, wb == WB_KELVIN ? rows[R_KELVIN] * 100 : 0, rows[R_AB], rows[R_GM], pe, rows[R_EV], rows[R_DRO],
                 Recipes.subValues(pe) != null ? rows[R_SUB] : 0);
     }
 
+    static Recipes.Recipe recipe(String name, int[] rows) {
+        return recipe(name, rows, null);
+    }
+
+    /** A copy includes the PP payload as well as the active slot; rows alone cannot hold its settings. */
+    static Recipes.Recipe recipe(String name, int[] rows, Recipes.PpProfile profile) {
+        Recipes.Recipe r = fromRows(name, rows);
+        if (rows[R_PP] == 0 || rows[R_PE] != 0) return r;
+        if (profile == null) throw new IllegalArgumentException("Picture Profile settings unavailable");
+        return PictureProfiles.attach(r, PictureProfiles.atSlot(profile, rows[R_PP]));
+    }
+
     /** the same recipe under another name */
     static Recipes.Recipe renamed(Recipes.Recipe r, String name) {
-        return new Recipes.Recipe(Recipes.CUSTOM, name, r.style, r.sat, r.con, r.sharp, r.wbMode, r.kelvin, r.ab, r.gm, r.pe, r.ev, r.dro, r.sub);
+        return new Recipes.Recipe(Recipes.CUSTOM, name, r.style, r.sat, r.con, r.sharp, r.wbMode, r.kelvin, r.ab, r.gm, r.pe, r.ev, r.dro, r.sub, r.ppProfile);
     }
 
     /** null when every value is one the settings store takes; else the first that is not, as the file would spell it */
@@ -118,6 +130,12 @@ final class CustomRecipes {
         if (!in(r.gm, -7, 7)) return bad("green-magenta", r.gm);
         if (!in(r.ev, ROW_MIN[R_EV], ROW_MAX[R_EV])) return bad("exposure", r.ev);
         if (!in(r.dro, 0, Recipes.DRO_AUTO)) return bad("dro", r.dro);
+        if (r.ppProfile != null) {
+            if (r.pe != 0) return bad("pp-slot", r.ppProfile.pp);
+            int[] v = PictureProfiles.values(r.ppProfile);
+            for (int i = 0; i < v.length; i++)
+                if (!in(v[i], PictureProfiles.MIN[i], PictureProfiles.MAX[i])) return bad(PictureProfiles.KEYS[i], v[i]);
+        }
         return null;
     }
 

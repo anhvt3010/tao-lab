@@ -35,6 +35,28 @@ final class Params {
             ID_QFMT = 0x01070013, ID_QJPG = 0x01070014,            // still file format / jpeg quality (verified by menu diff)
             ID_QFMT2 = 0x01070aa9, ID_QJPG2 = 0x01070aaa;          // the camera keeps mirror copies; written too
 
+    // ---- Sony A6300 Picture Profile hardware table: ID(k, pp) = 0x010701d0 + 10 * k + pp (pp = 1..9, verified on ILCE-6300)
+    static final int ID_PP_BASE = 0x010701d0, ID_PP_END = 0x0107030f;
+    static final int PP_DEFAULT_SLOT = 1;
+    static final int K_BLACK_LEVEL = 2,
+            K_DEPTH_B = 3, K_DEPTH_C = 4, K_DEPTH_G = 5, K_DEPTH_M = 6, K_DEPTH_R = 7, K_DEPTH_Y = 8,
+            K_COLOR_PHASE = 9, K_PP_SAT = 10, K_GAMMA_MODE = 12, K_DETAIL_LVL = 16;
+
+    /** settings-store slot for Picture Profile parameter cluster k on profile pp (1..9) */
+    static int ppSlot(int k, int pp) { return ID_PP_BASE + 10 * k + pp; }
+
+    static final int ID_PP_BLACK  = ID_PP_BASE + 10 * K_BLACK_LEVEL + PP_DEFAULT_SLOT,
+            ID_PP_DEPTH_B = ID_PP_BASE + 10 * K_DEPTH_B + PP_DEFAULT_SLOT,
+            ID_PP_DEPTH_C = ID_PP_BASE + 10 * K_DEPTH_C + PP_DEFAULT_SLOT,
+            ID_PP_DEPTH_G = ID_PP_BASE + 10 * K_DEPTH_G + PP_DEFAULT_SLOT,
+            ID_PP_DEPTH_M = ID_PP_BASE + 10 * K_DEPTH_M + PP_DEFAULT_SLOT,
+            ID_PP_DEPTH_R = ID_PP_BASE + 10 * K_DEPTH_R + PP_DEFAULT_SLOT,
+            ID_PP_DEPTH_Y = ID_PP_BASE + 10 * K_DEPTH_Y + PP_DEFAULT_SLOT,
+            ID_PP_PHASE   = ID_PP_BASE + 10 * K_COLOR_PHASE + PP_DEFAULT_SLOT,
+            ID_PP_SAT     = ID_PP_BASE + 10 * K_PP_SAT + PP_DEFAULT_SLOT,
+            ID_PP_MODE    = ID_PP_BASE + 10 * K_GAMMA_MODE + PP_DEFAULT_SLOT,
+            ID_PP_DETAIL  = ID_PP_BASE + 10 * K_DETAIL_LVL + PP_DEFAULT_SLOT;
+
     // ---- quality: 0 RAW, 1 RAW+JPEG, 2 JPEG Fine, 3 JPEG Std — runtime keys storage-fmt / jpeg-quality.
     // RAW alone is still read (a camera can be left on it) but never offered: no JPEG, so the look has nowhere to go,
     // and a shutter fired on it reboots the A6000 (#100). It becomes RAW+JPEG wherever the app picks a quality.
@@ -51,15 +73,15 @@ final class Params {
     static final String[] ROW_NAME = { "RECIPE", "STYLE", "SAT", "CON", "SHARP", "PP", "EFFECT", "SUB", "WB", "KELVIN", "A-B", "G-M", "EV", "DRO", "QUALITY" };
     static final int[] ROW_ID = { NO_SLOT, ID_STYLE, ID_SAT, ID_CON, ID_SHARP, ID_PP_NO, ID_PE, SUB_SLOT, ID_WB_MODE, ID_WB_TEMP, ID_WB_AB, ID_WB_GM, ID_EV, ID_DRO, QUALITY_SLOTS };
     static final int[] ROW_MIN = { 0, 1, -3, -3, -3, 0, 0, 0, 0, 25, -7, -7, -15, 0, 0 };
-    static final int[] ROW_MAX = { 0, 14, 3, 3, 3, 1, 13, 4, 20, 99, 7, 7, 15, 6, 3 };
+    static final int[] ROW_MAX = { 0, 14, 3, 3, 3, 9, 13, 4, 20, 99, 7, 7, 15, 6, 3 };
     static final int N = ROW_ID.length;
 
     /** a row's name as its chip shows it, in the display language; ROW_NAME is the English */
     static String rowName(int row) { return Lang.label("row_" + Lang.slug(ROW_NAME[row]), ROW_NAME[row]); }
     /** a quality as the chip and the messages show it, in the display language; Q_LABEL is the English */
     static String qualityLabel(int q) { return q >= 0 && q < Q_LABEL.length ? Lang.label("quality_" + Lang.slug(Q_LABEL[q]), Q_LABEL[q]) : "?" + q; }
-    /** chip display / navigation order (quality first) */
-    static final int[] ORDER = { R_QUAL, R_STYLE, R_SAT, R_CON, R_SHARP, R_PE, R_SUB, R_WBMODE, R_KELVIN, R_AB, R_GM, R_EV, R_DRO };   // R_PP has no chip
+    /** chip display / navigation order (quality first, PP after sharpness) */
+    static final int[] ORDER = { R_QUAL, R_STYLE, R_SAT, R_CON, R_SHARP, R_PP, R_PE, R_SUB, R_WBMODE, R_KELVIN, R_AB, R_GM, R_EV, R_DRO };
     /** the overlay MainActivity is in: the full panel, the pill, nothing, the browser, or the full panel without its key legend */
     static final int OV_FULL = 0, OV_PILL = 1, OV_HIDDEN = 2, OV_BROWSER = 3, OV_QUIET = 4;
     /** whether the overlay shows the full panel, with its chips — with or without the key legend under it */
@@ -75,8 +97,11 @@ final class Params {
     /** settings slot for a row; SUB depends on which effect is staged (0 when it has none) */
     static int slot(int row, int pe) { return row == R_SUB ? Recipes.subId(pe) : ROW_ID[row]; }
 
+    /** whether a slot is a Picture Profile gamma/color mode enum slot (cluster K_GAMMA_MODE) */
+    static boolean isPpModeSlot(int id) { return id >= ID_PP_BASE && id <= ID_PP_END && (id - ID_PP_BASE) / 10 == K_GAMMA_MODE; }
+
     /** slots whose byte is an unsigned index; every other slot holds a signed offset */
-    static boolean unsignedSlot(int id) { return id == ID_WB_TEMP || id == ID_WB_MODE || id == ID_STYLE || id == ID_PE; }
+    static boolean unsignedSlot(int id) { return id == ID_WB_TEMP || id == ID_WB_MODE || id == ID_STYLE || id == ID_PE || id == ID_PP_NO || isPpModeSlot(id); }
 
     /** the fine-tune copy the camera applies in the given WB mode */
     static int abSlot(int wbMode) { return wbMode == WB_KELVIN ? ID_WB_AB_K : ID_WB_AB_AWB; }
@@ -89,10 +114,10 @@ final class Params {
     /** the level byte: 1 for off and auto, Lv n = n + 1 */
     static int droLevelToStore(int dro) { return (dro >= 1 && dro <= 5) ? dro + 1 : 1; }
     /**
-     * Picture Profile number -> PP row: 1 while any profile is on. The row has no chip; a staged recipe always
-     * sets it to 0, so picking any recipe switches off the PP3 that older matrix recipes left behind (issue #38).
+     * Picture Profile number -> PP row (0 = off, 1..9 = PP1..PP9). Unlocked for Sony A6300 so recipes and the
+     * chip strip can select any Picture Profile directly.
      */
-    static int ppFromStore(int ppNo) { return ppNo == 0 ? 0 : 1; }
+    static int ppFromStore(int ppNo) { return ppNo <= 0 ? 0 : Math.min(9, ppNo); }
     /** the store counts magenta positive, the app counts green positive */
     static int gmFromStore(int b) { return -b; }
     static int gmToStore(int gm) { return -gm; }
@@ -180,6 +205,69 @@ final class Params {
             if (id == ID_WB_GM) { w.add(new Write(ID_WB_GM, gmToStore(v))); w.add(new Write(gmSlot(edit[R_WBMODE]), gmToStore(v))); continue; }
             if (id == ID_DRO) { w.add(new Write(ID_DRO, droMainToStore(v))); w.add(new Write(ID_DRO_LVL, droLevelToStore(v))); continue; }
             w.add(new Write(id, v));
+        }
+        return w;
+    }
+
+    /**
+     * Generates the settings-store byte writes for a full Sony A6300 Deep-Color Picture Profile configuration
+     * on profile {@code pp} (1..9), including the active profile selector {@code ID_PP_NO}.
+     */
+    static List<Write> ppWrites(int pp, int mode, int black, int sat, int phase,
+                                int r, int g, int b, int c, int m, int y, int detail) {
+        List<Write> w = new ArrayList<Write>();
+        if (pp < 1 || pp > 9) {
+            w.add(new Write(ID_PP_NO, 0));
+            return w;
+        }
+        w.add(new Write(ID_PP_NO, pp));
+        w.add(new Write(ppSlot(K_BLACK_LEVEL, pp), clamp(black, -15, 15)));
+        w.add(new Write(ppSlot(K_DEPTH_B, pp), clamp(b, -7, 7)));
+        w.add(new Write(ppSlot(K_DEPTH_C, pp), clamp(c, -7, 7)));
+        w.add(new Write(ppSlot(K_DEPTH_G, pp), clamp(g, -7, 7)));
+        w.add(new Write(ppSlot(K_DEPTH_M, pp), clamp(m, -7, 7)));
+        w.add(new Write(ppSlot(K_DEPTH_R, pp), clamp(r, -7, 7)));
+        w.add(new Write(ppSlot(K_DEPTH_Y, pp), clamp(y, -7, 7)));
+        w.add(new Write(ppSlot(K_COLOR_PHASE, pp), clamp(phase, -7, 7)));
+        w.add(new Write(ppSlot(K_PP_SAT, pp), clamp(sat, -32, 32)));
+        w.add(new Write(ppSlot(K_GAMMA_MODE, pp), mode & 0xff));
+        w.add(new Write(ppSlot(K_DETAIL_LVL, pp), clamp(detail, -7, 7)));
+        return w;
+    }
+
+    /**
+     * Generates the settings-store byte writes for a {@link Recipes.PpProfile} on profile slot {@code pp} (1..9).
+     */
+    static List<Write> ppWrites(int pp, Recipes.PpProfile p) {
+        if (p == null || pp < 1 || pp > 9) return ppWrites(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        return ppWrites(pp, p.mode, p.black, p.sat, p.phase, p.r, p.g, p.b, p.c, p.m, p.y, p.detail);
+    }
+
+    /** Stored application identity includes the actual PP writes, so a retuned recipe is applied again after an update. */
+    static String ppSignature(Recipes.Recipe r, int pp) {
+        return r == null ? "" : r.ppKey(pp);
+    }
+
+    /**
+     * Full recipe write list: standard row writes ({@link #writes}) plus the 11 Sony A6300 Deep-Color Picture Profile
+     * register writes whenever the recipe has a {@link Recipes.PpProfile} and a Picture Profile slot (1..9) is active.
+     */
+    static List<Write> recipeWrites(int[] cur, int[] edit, int storedSub, Recipes.Recipe r) {
+        List<Write> w = new ArrayList<Write>(writes(cur, edit, storedSub));
+        if (r != null && r.ppProfile != null && edit[R_PE] == 0 && edit[R_PP] >= 1 && edit[R_PP] <= 9) {
+            int pp = edit[R_PP];
+            Recipes.PpProfile p = r.ppProfile;
+            w.add(new Write(ppSlot(K_BLACK_LEVEL, pp), clamp(p.black, -15, 15)));
+            w.add(new Write(ppSlot(K_DEPTH_B, pp), clamp(p.b, -7, 7)));
+            w.add(new Write(ppSlot(K_DEPTH_C, pp), clamp(p.c, -7, 7)));
+            w.add(new Write(ppSlot(K_DEPTH_G, pp), clamp(p.g, -7, 7)));
+            w.add(new Write(ppSlot(K_DEPTH_M, pp), clamp(p.m, -7, 7)));
+            w.add(new Write(ppSlot(K_DEPTH_R, pp), clamp(p.r, -7, 7)));
+            w.add(new Write(ppSlot(K_DEPTH_Y, pp), clamp(p.y, -7, 7)));
+            w.add(new Write(ppSlot(K_COLOR_PHASE, pp), clamp(p.phase, -7, 7)));
+            w.add(new Write(ppSlot(K_PP_SAT, pp), clamp(p.sat, -32, 32)));
+            w.add(new Write(ppSlot(K_GAMMA_MODE, pp), p.mode & 0xff));
+            w.add(new Write(ppSlot(K_DETAIL_LVL, pp), clamp(p.detail, -7, 7)));
         }
         return w;
     }
@@ -393,8 +481,7 @@ final class Params {
     static boolean rowVisible(int row, int[] edit) {
         boolean pe = edit[R_PE] != 0;
         switch (row) {
-            case R_STYLE: case R_SAT: case R_CON: case R_SHARP: return !pe;
-            case R_PP: return false;
+            case R_STYLE: case R_SAT: case R_CON: case R_SHARP: case R_PP: return !pe;
             case R_SUB: return pe && Recipes.subId(edit[R_PE]) != 0;
             case R_KELVIN: return edit[R_WBMODE] == WB_KELVIN;
             default: return true;
@@ -402,7 +489,7 @@ final class Params {
     }
 
     /** enumerated rows (names, not numbers) scroll endlessly */
-    static boolean isChoice(int row) { return row == R_STYLE || row == R_PE || row == R_SUB || row == R_QUAL || row == R_DRO || row == R_WBMODE; }
+    static boolean isChoice(int row) { return row == R_STYLE || row == R_PP || row == R_PE || row == R_SUB || row == R_QUAL || row == R_DRO || row == R_WBMODE; }
 
     /**
      * One step on the focused chip: choices wrap, numbers clamp, WB toggles auto/kelvin, SUB cycles the staged
@@ -490,7 +577,7 @@ final class Params {
     static String fmt(int row, int v, int[] edit) {
         switch (row) {
             case R_STYLE: return Recipes.styleLabel(v);
-            case R_PP: return Lang.t(v == 0 ? "value_off" : "value_on");
+            case R_PP: return v <= 0 ? Lang.t("value_off") : "PP" + v;   // "value_on" replaced by "PP1".."PP9"
             case R_WBMODE: return v == WB_AUTO ? Lang.t("value_auto") : v == WB_KELVIN ? Lang.t("value_kelvin") : String.valueOf(v);
             case R_KELVIN: return edit[R_WBMODE] == WB_KELVIN ? (v * 100) + "K" : "-";
             case R_AB: return v == 0 ? "0" : (v > 0 ? "A" + v : "B" + (-v));

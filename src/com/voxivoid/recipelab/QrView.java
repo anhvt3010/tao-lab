@@ -19,7 +19,7 @@ import java.util.List;
  * what to do (or what is going on) below it. Everything is drawn: the camera font has no symbols.
  */
 public class QrView extends View {
-    private static final int ACCENT = 0xFFF2B85C;
+    private static final int ACCENT = 0xFFFF9F1C;
     private static final int SHARE = 1, SCAN = 2, COVER = 3, CARD = 4;
     private static final long SPIN_MS = 900, FRAME_MS = 40;
 

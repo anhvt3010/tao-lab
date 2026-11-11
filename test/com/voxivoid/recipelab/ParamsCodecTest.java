@@ -42,10 +42,28 @@ class ParamsCodecTest {
         for (int dro = 0; dro <= Recipes.DRO_AUTO; dro++) assertEquals(dro, droFromStore(droMainToStore(dro)), "DRO " + dro + " round trip");
     }
 
-    @Test void anyPictureProfileReadsAsOn() {
+    @Test void pictureProfileReadsOneToNineAndClamps() {
         assertEquals(0, ppFromStore(0));
-        assertEquals(1, ppFromStore(3));
-        assertEquals(1, ppFromStore(7));
+        assertEquals(3, ppFromStore(3));
+        assertEquals(7, ppFromStore(7));
+        assertEquals(9, ppFromStore(12));
+    }
+
+    @Test void a6300PictureProfileHardwareAddressesMatchVerifiedDiff() {
+        // Verified on Sony A6300 (ILCE-6300) for PP2 (pp = 2):
+        assertEquals(0x010701e6, ppSlot(K_BLACK_LEVEL, 2));
+        assertEquals(0x010701f0, ppSlot(K_DEPTH_B, 2));
+        assertEquals(0x010701fa, ppSlot(K_DEPTH_C, 2));
+        assertEquals(0x01070204, ppSlot(K_DEPTH_G, 2));
+        assertEquals(0x0107020e, ppSlot(K_DEPTH_M, 2));
+        assertEquals(0x01070218, ppSlot(K_DEPTH_R, 2));
+        assertEquals(0x01070222, ppSlot(K_DEPTH_Y, 2));
+        assertEquals(0x0107022c, ppSlot(K_COLOR_PHASE, 2));
+        assertEquals(0x01070236, ppSlot(K_PP_SAT, 2));
+        assertEquals(0x0107024a, ppSlot(K_GAMMA_MODE, 2));
+        assertEquals(0x01070272, ppSlot(K_DETAIL_LVL, 2));
+        assertTrue(unsignedSlot(ppSlot(K_GAMMA_MODE, 2)));
+        assertFalse(unsignedSlot(ppSlot(K_BLACK_LEVEL, 2)));
     }
 
     @Test void greenMagentaIsStoredMagentaPositive() {
@@ -73,7 +91,7 @@ class ParamsCodecTest {
     }
 
     @Test void fromStoreAppliesTheRowCodecs() {
-        assertEquals(1, fromStore(ID_PP_NO, 3));
+        assertEquals(3, fromStore(ID_PP_NO, 3));
         assertEquals(0, fromStore(ID_PP_NO, 0));
         assertEquals(1, fromStore(ID_WB_GM, 0xFF), "0xff = G1");
         assertEquals(-3, fromStore(ID_WB_GM, 3), "magenta 3 = G-M -3");

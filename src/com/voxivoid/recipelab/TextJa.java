@@ -124,7 +124,6 @@ final class TextJa {
         { "custom_skipped_one", "%1$s をスキップしました" },
         { "custom_skipped_many", "%1$d 個のファイルをスキップ——最初：%2$s" },
         { "custom_created", "%1$s をメモリーカードに %2$s として保存しました" },
-        { "custom_saved", "%1$s を保存しました" },
         { "custom_renamed", "%1$s に名前を変更しました" },
         { "custom_deleted", "%1$s を削除しました" },
         { "custom_save_failed", "メモリーカードに保存できません：%1$s" },

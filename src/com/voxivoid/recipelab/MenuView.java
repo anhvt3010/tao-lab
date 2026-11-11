@@ -18,7 +18,7 @@ import android.view.View;
  * large in a card, what to do, and a footer of the address and the totals.
  */
 public class MenuView extends View {
-    private static final int ACCENT = 0xFFF2B85C, INK = 0xFF1A1208;
+    private static final int ACCENT = 0xFFFF9F1C, INK = 0xFF0E1015;
 
     private final Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG), head = new Paint(Paint.ANTI_ALIAS_FLAG),
             item = new Paint(Paint.ANTI_ALIAS_FLAG), small = new Paint(Paint.ANTI_ALIAS_FLAG), row = new Paint(Paint.ANTI_ALIAS_FLAG),

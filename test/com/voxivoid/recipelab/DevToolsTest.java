@@ -254,10 +254,8 @@ class DevToolsTest {
         assertEquals("source", a[4][0]);
         assertEquals("unknown", DevTools.about(null, null, null, null)[2][1], "no firmware from the camera");
         String[] f = DevTools.aboutFooter();
-        assertEquals("Love this app? Leave a tip!", f[0], "the README's ask");
-        assertEquals("ko-fi.com/voxivoid", f[1], "Ko-fi first: no GitHub account needed");
-        assertEquals("github.com/sponsors/voxivoid", f[2]);
-        assertEquals("Love this app? Leave a tip!  ko-fi.com/voxivoid", DevTools.sponsorLine(), "the live view's line");
+        assertEquals(0, f.length, "donate/tip footer removed");
+        assertEquals("", DevTools.sponsorLine(), "live view sponsor banner removed");
         assertEquals("ILCE-6000", DevTools.about(null, "ILCE-6000", null, "2.4")[1][1]);
     }
 

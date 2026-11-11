@@ -42,7 +42,10 @@ src/com/voxivoid/recipelab/
                                writing the RECIPES folder — no Android, covered by test/
   RecipeFormats.java           the custom recipe file's versions: which RecipeFormat reads a file (its format line) and
                                which writes one (the newest); RecipeFormat.java is a version, RecipeFormatV1.java format 1,
-                               RecipeFormatV2.java format 2 (format 1 plus the camera family)
+                               RecipeFormatV2.java format 2 (camera family), RecipeFormatV3.java format 3 (A6300 PP)
+  PictureProfiles.java         PP payload validation and copying; file/QR details in PP_STORAGE.md
+  CrashHandler.java            one process-wide crash handler, without Activity references
+  DiagnosticLog.java           bounded background event logs and a separate fatal crash record
   RecipeShare.java             a recipe as a share link / QR code (Recipe share code); io/nayuki/qrcodegen draws the QR
   QrScan.java                  Read Recipe QR Code: a code in a frame or a photo (com/google/zxing), what it holds, the
                                pictures a shutter press added (to read, then delete) — no Android, covered by test/
@@ -87,8 +90,6 @@ src/com/voxivoid/recipelab/
                                a hold is its key's icon labelled "(hold)", and Fn, where the body has it, sits before
                                MENU when both close the list ("Fn / MENU close")
   StarView.java                the star next to the recipe name when it is a favorite
-  SponsorLine.java             the small "Love this app? Leave a tip!" line, with a drawn heart, at the top of
-                               the live view on the Full panel only (DevTools.sponsorLine, Ko-fi); the About page lists Ko-fi and GitHub Sponsors
   HintBar.java                 legend view under the panel (uses Legend)
   NativeBackup.java            JNI: read / write / attr / sync
   transfer/                    Transfer to phone (see Transfer to phone): the camera hotspot and the protocol 5 HTTP
@@ -303,8 +304,9 @@ left empty, loops through all of them.
 ignored), English always, `.YML`. Anything else YAML allows (lists, nesting) and any line that is not `key: value` (an
 old `key = value` file included) skips the file with its line number. The name is always written quoted, so other YAML
 tools read it as text; note that strict YAML 1.1 tools read `dro: off` as false — the app reads every value as text.
-Format 2 (`RecipeFormatV2`) is what the app writes: format 1's keys (below) plus `family`. Format 1 (`RecipeFormatV1`)
-files, written by v1.11.1 and earlier, are still read.
+Non-PP recipes write format 2 (`RecipeFormatV2`): format 1's keys (below) plus `family`.
+A6300 PP recipes write format 3 so older readers reject the full look rather than drop PP.
+Formats 1 and 2 remain readable. See [PP_STORAGE.md](PP_STORAGE.md) for PP files and QR links.
 
 | key | values | missing → |
 |---|---|---|

@@ -8,16 +8,6 @@
         android:layout_width="fill_parent"
         android:layout_height="fill_parent" />
 
-    <!-- the sponsor ask, small, at the top of the live view on the Full and No keys panels -->
-    <com.voxivoid.recipelab.SponsorLine
-        android:id="@+id/sponsor"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|left"
-        android:layout_marginLeft="8dp"
-        android:layout_marginTop="6dp"
-        android:visibility="gone" />
-
     <!-- full overlay: bottom panel -->
     <LinearLayout
         android:id="@+id/panel"
@@ -26,19 +16,20 @@
         android:layout_gravity="bottom"
         android:orientation="vertical"
         android:background="@drawable/panel_bg"
-        android:paddingLeft="12dp"
-        android:paddingRight="12dp"
-        android:paddingTop="14dp"
-        android:paddingBottom="8dp">
+        android:paddingLeft="10dp"
+        android:paddingRight="10dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="7dp">
 
         <!-- brand and position, over the name: "FUJI SIM   2 / 18" -->
         <TextView
             android:id="@+id/count"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="-1dp"
-            android:textSize="11sp"
-            android:textColor="#B3FFFFFF"
+            android:layout_marginBottom="1dp"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:textColor="#CCFF9F1C"
             android:singleLine="true" />
 
         <!-- name, then its badges. The row is as wide as its content, so the badges sit right after a short name; the
@@ -54,20 +45,20 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:ellipsize="end"
-                android:textSize="21sp"
+                android:textSize="19sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFFFF"
-                android:shadowColor="#AA000000"
-                android:shadowDx="0" android:shadowDy="1" android:shadowRadius="2"
+                android:shadowColor="#CC000000"
+                android:shadowDx="0" android:shadowDy="1" android:shadowRadius="3"
                 android:singleLine="true" />
             <TextView
                 android:id="@+id/badge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginLeft="10dp"
-                android:paddingLeft="7dp" android:paddingRight="7dp"
+                android:layout_marginLeft="8dp"
+                android:paddingLeft="8dp" android:paddingRight="8dp"
                 android:paddingTop="2dp" android:paddingBottom="2dp"
-                android:textSize="10sp"
+                android:textSize="9.5sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFFFF"
                 android:background="@drawable/badge_ok" />
@@ -77,9 +68,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="4dp"
-                android:paddingLeft="7dp" android:paddingRight="7dp"
+                android:paddingLeft="8dp" android:paddingRight="8dp"
                 android:paddingTop="2dp" android:paddingBottom="2dp"
-                android:textSize="10sp"
+                android:textSize="9.5sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFFFF"
                 android:background="@drawable/badge_edited"
@@ -89,11 +80,11 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="6dp"
-                android:paddingLeft="5dp" android:paddingRight="5dp"
+                android:paddingLeft="6dp" android:paddingRight="6dp"
                 android:paddingTop="2dp" android:paddingBottom="2dp"
                 android:textSize="9sp"
                 android:textStyle="bold"
-                android:textColor="#DDFFFFFF"
+                android:textColor="#FFFF9F1C"
                 android:background="@drawable/chip" />
             <com.voxivoid.recipelab.StarView
                 android:id="@+id/fav"
@@ -108,9 +99,9 @@
             android:id="@+id/name_original"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="-1dp"
+            android:layout_marginTop="0dp"
             android:textSize="9sp"
-            android:textColor="#8FFFFFFF"
+            android:textColor="#99FFFFFF"
             android:singleLine="true"
             android:visibility="gone" />
 
@@ -118,10 +109,11 @@
             android:id="@+id/meta"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
-            android:textSize="11sp"
-            android:textColor="#A6FFFFFF"
-            android:maxLines="3" />
+            android:layout_marginTop="2dp"
+            android:textSize="10sp"
+            android:textColor="#D9FFFFFF"
+            android:singleLine="true"
+            android:ellipsize="end" />
 
         <HorizontalScrollView
             android:id="@+id/chipscroll"
@@ -138,15 +130,6 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal" />
         </HorizontalScrollView>
-
-        <!-- edit buttons, while the recipe has edits: Save, Copy, Apply, Restore -->
-        <LinearLayout
-            android:id="@+id/actions"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:orientation="horizontal"
-            android:visibility="gone" />
 
         <com.voxivoid.recipelab.HintBar
             android:id="@+id/hints"

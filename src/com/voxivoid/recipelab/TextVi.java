@@ -12,10 +12,10 @@ final class TextVi {
     static final String[][] TEXT = {
         { "lang_name", "Tiếng Việt" },
         { "lang_auto", "Tự động" },
-        { "value_auto", "tự động" },
-        { "value_off", "tắt" },
-        { "value_on", "bật" },
-        { "value_kelvin", "kelvin" },
+        { "value_auto", "Tự động" },
+        { "value_off", "Tắt" },
+        { "value_on", "Bật" },
+        { "value_kelvin", "Kelvin" },
         { "value_level", "Mức %1$d" },
         { "value_seconds", "%1$s s" },
         { "value_unknown", "không rõ" },
@@ -124,7 +124,6 @@ final class TextVi {
         { "custom_skipped_one", "Đã bỏ qua %1$s" },
         { "custom_skipped_many", "Đã bỏ qua %1$d tệp — đầu tiên: %2$s" },
         { "custom_created", "Đã lưu %1$s vào thẻ nhớ dạng %2$s" },
-        { "custom_saved", "Đã lưu %1$s" },
         { "custom_renamed", "Đã đổi tên thành %1$s" },
         { "custom_deleted", "Đã xóa %1$s" },
         { "custom_save_failed", "Không lưu được vào thẻ nhớ: %1$s" },
@@ -263,9 +262,9 @@ final class TextVi {
         { "row_sub", "Phụ" },
         { "row_wb", "WB" },
         { "row_kelvin", "Kelvin" },
-        { "row_a_b", "Hổ phách–Lam" },
-        { "row_g_m", "Lục–Tím" },
-        { "row_ev", "Bù sáng" },
+        { "row_a_b", "A–B" },
+        { "row_g_m", "G–M" },
+        { "row_ev", "EV" },
         { "row_dro", "DRO" },
         { "row_quality", "Chất lượng" },
 
@@ -315,9 +314,9 @@ final class TextVi {
 
         // ---- quality
         { "quality_raw", "RAW" },
-        { "quality_raw_jpg", "RAW+JPEG" },
-        { "quality_jpg_fine", "JPEG tinh" },
-        { "quality_jpg_std", "JPEG chuẩn" },
+        { "quality_raw_jpg", "RAW+JPG" },
+        { "quality_jpg_fine", "JPG Mịn" },
+        { "quality_jpg_std", "JPG Chuẩn" },
 
         // ---- brands
         { "group_sony", "Sony" },
@@ -329,7 +328,7 @@ final class TextVi {
         { "group_leica", "Leica" },
         { "group_hasselblad", "Hasselblad" },
         { "group_canon_nikon", "Canon / Nikon" },
-        { "group_pana_olympus", "Panasonic / Olympus" },
+        { "group_pana_olympus", "Pana / Olympus" },
         { "group_other_stocks", "Film khác" },
         { "group_ilford", "Ilford" },
 
@@ -399,8 +398,8 @@ final class TextVi {
         { "recipe_canon_faithful", "Canon Trung thực" },
         { "recipe_nikon_flat", "Nikon Phẳng" },
         { "recipe_nikon_vivid", "Nikon Sống động" },
-        { "recipe_pana_l_monochrome_d", "Panasonic L.Monochrome D" },
-        { "recipe_pana_l_classicneo", "Panasonic L.Classic Neo" },
+        { "recipe_pana_l_monochrome_d", "Pana L.Monochrome D" },
+        { "recipe_pana_l_classicneo", "Pana L.Classic Neo" },
         { "recipe_olympus_pop_art", "Olympus Pop Art" },
         { "recipe_olympus_pale_light", "Olympus Nhạt sáng" },
         { "recipe_agfa_vista_200", "Agfa Vista 200" },

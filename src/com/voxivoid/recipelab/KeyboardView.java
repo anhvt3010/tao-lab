@@ -16,7 +16,7 @@ import android.view.View;
  * has no arrow glyphs.
  */
 public class KeyboardView extends View {
-    private static final int ACCENT = 0xFFF2B85C, INK = 0xFF1A1208;
+    private static final int ACCENT = 0xFFFF9F1C, INK = 0xFF0E1015;
 
     private final Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG), head = new Paint(Paint.ANTI_ALIAS_FLAG), field = new Paint(Paint.ANTI_ALIAS_FLAG),
             box = new Paint(Paint.ANTI_ALIAS_FLAG), err = new Paint(Paint.ANTI_ALIAS_FLAG), cell = new Paint(Paint.ANTI_ALIAS_FLAG),

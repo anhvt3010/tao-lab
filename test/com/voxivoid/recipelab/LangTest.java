@@ -28,12 +28,12 @@ class LangTest {
     private static final int[] TRANSLATIONS = { Lang.ZH_HANS, Lang.ZH_HANT, Lang.JA, Lang.KO, Lang.VI };
     /** the bundled font of each translation; null where the camera's own font draws it */
     private static final String[] FONTS = {
-        null,
+        "assets/fonts/UiModern-Regular.ttf",
         "assets/fonts/RecipeLabCJKsc-Regular.ttf",
         "assets/fonts/RecipeLabCJKtc-Regular.ttf",
         "assets/fonts/RecipeLabCJKjp-Regular.ttf",
         "assets/fonts/RecipeLabCJKkr-Regular.ttf",
-        null,
+        "assets/fonts/UiModern-Regular.ttf",
     };
     private static final Pattern PLACEHOLDER = Pattern.compile("%(?:\\d+\\$)?[a-zA-Z]");
 

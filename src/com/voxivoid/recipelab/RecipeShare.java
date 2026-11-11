@@ -28,6 +28,8 @@ public final class RecipeShare {
     private RecipeShare() {}
 
     public static final int VERSION = 1;
+    /** PP links are versioned separately; old scanners refuse them rather than losing part of the look. */
+    static final int PP_VERSION = 2;
     public static final String PREFIX = "https://recipelab.io/r#";
     private static final String WWW_PREFIX = "https://www.recipelab.io/r#";
     /** this family's code in byte 1 */
@@ -46,8 +48,9 @@ public final class RecipeShare {
         if (CustomRecipes.problem(r) != null || !nameOk(name)) return null;
         int style = styleCode(r.style);
         if (style < 0) return null;
-        byte[] b = new byte[HEAD + name.length()];
-        b[0] = VERSION;
+        int head = HEAD + (r.ppProfile == null ? 0 : PictureProfiles.KEYS.length);
+        byte[] b = new byte[head + name.length()];
+        b[0] = (byte) (r.ppProfile == null ? VERSION : PP_VERSION);
         b[1] = FAMILY_CODE;
         b[2] = (byte) style;
         b[3] = (byte) (r.sat + 3);
@@ -60,7 +63,11 @@ public final class RecipeShare {
         b[10] = (byte) r.dro;
         b[11] = (byte) r.pe;
         b[12] = (byte) (Recipes.subValues(r.pe) == null ? 0 : r.sub);
-        for (int i = 0; i < name.length(); i++) b[HEAD + i] = (byte) name.charAt(i);
+        if (r.ppProfile != null) {
+            int[] pp = PictureProfiles.values(r.ppProfile);
+            for (int i = 0; i < pp.length; i++) b[HEAD + i] = (byte) pp[i];
+        }
+        for (int i = 0; i < name.length(); i++) b[head + i] = (byte) name.charAt(i);
         return PREFIX + base64Url(b);
     }
 
@@ -80,14 +87,15 @@ public final class RecipeShare {
     /** The recipe a bare code carries (after the #); null when it cannot be read. */
     static Recipes.Recipe decodeCode(String code) {
         int[] b = unBase64Url(code);
-        if (b == null || b.length < 2 || b[0] != VERSION) return null;
-        if (b[1] != FAMILY_CODE || b.length <= HEAD) return null;   // made for other cameras
+        if (b == null || b.length < 2 || (b[0] != VERSION && b[0] != PP_VERSION)) return null;
+        int head = HEAD + (b[0] == PP_VERSION ? PictureProfiles.KEYS.length : 0);
+        if (b[1] != FAMILY_CODE || b.length <= head) return null;   // made for other cameras
         if (b[2] >= STYLES.length || b[11] >= Recipes.PE_KEYS.length) return null;
         int pe = b[11];
         String[] sv = Recipes.subValues(pe);
         if (sv == null ? b[12] != 0 : b[12] >= sv.length) return null;
         StringBuilder name = new StringBuilder();
-        for (int i = HEAD; i < b.length; i++) {
+        for (int i = head; i < b.length; i++) {
             if (b[i] > 0x7f) return null;
             name.append((char) b[i]);
         }
@@ -99,6 +107,12 @@ public final class RecipeShare {
         else { wbMode = Params.WB_KELVIN; kelvin = b[6] * 100; }
         Recipes.Recipe r = new Recipes.Recipe(Recipes.CUSTOM, n, styleEnum(STYLES[b[2]]), b[3] - 3, b[4] - 3, b[5] - 3,
                 wbMode, kelvin, b[7] - 7, b[8] - 7, pe, b[9] - 15, b[10], b[12]);
+        if (b[0] == PP_VERSION) {
+            int[] pp = new int[PictureProfiles.KEYS.length];
+            for (int i = 0; i < pp.length; i++) pp[i] = (byte) b[HEAD + i];
+            try { r = PictureProfiles.attach(r, PictureProfiles.from(pp)); }
+            catch (IllegalArgumentException bad) { return null; }
+        }
         return CustomRecipes.problem(r) == null ? r : null;
     }
 

@@ -17,12 +17,12 @@ final class UiFont {
     private UiFont() {}
 
     private static final String[] ASSET = {
-        null,                                  // English
+        "fonts/UiModern-Regular.ttf",          // English: modern clean sans-serif
         "fonts/RecipeLabCJKsc-Regular.ttf",    // 简体中文
         "fonts/RecipeLabCJKtc-Regular.ttf",    // 繁體中文
         "fonts/RecipeLabCJKjp-Regular.ttf",    // 日本語
         "fonts/RecipeLabCJKkr-Regular.ttf",    // 한국어
-        null,                                  // Tiếng Việt: Latin with diacritics, which the camera's font draws
+        "fonts/UiModern-Regular.ttf",          // Tiếng Việt: modern clean sans-serif with full Vietnamese diacritics
     };
     private static final Typeface[] LOADED = new Typeface[Lang.COUNT];
 
@@ -30,6 +30,12 @@ final class UiFont {
     static Typeface of(Context c, int lang) {
         if (ASSET[lang] == null) return Typeface.DEFAULT;
         if (LOADED[lang] == null) {
+            for (int i = 0; i < LOADED.length; i++) {
+                if (LOADED[i] != null && ASSET[lang].equals(ASSET[i])) {
+                    LOADED[lang] = LOADED[i];
+                    return LOADED[lang];
+                }
+            }
             try { LOADED[lang] = Typeface.createFromAsset(c.getAssets(), ASSET[lang]); }
             catch (Throwable t) { LOADED[lang] = Typeface.DEFAULT; }
         }

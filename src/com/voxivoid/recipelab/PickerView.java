@@ -17,7 +17,7 @@ import java.util.List;
  * (the custom recipes from the memory card, A to Z); the rest are the brands.
  */
 public class PickerView extends View {
-    private static final int ACCENT = 0xFFF2B85C, INK = 0xFF1A1208;
+    private static final int ACCENT = 0xFFFF9F1C, INK = 0xFF0E1015;
 
     private final Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG), edge = new Paint(Paint.ANTI_ALIAS_FLAG), sel = new Paint(Paint.ANTI_ALIAS_FLAG),
             head = new Paint(Paint.ANTI_ALIAS_FLAG), item = new Paint(Paint.ANTI_ALIAS_FLAG), small = new Paint(Paint.ANTI_ALIAS_FLAG), rule = new Paint(),
@@ -37,15 +37,15 @@ public class PickerView extends View {
         super(c, a);
         d = c.getResources().getDisplayMetrics().density;
         legend = new Legend(d);
-        bg.setColor(0xF0101010);
-        edge.setColor(0x66F2B85C); edge.setStyle(Paint.Style.STROKE); edge.setStrokeWidth(d);
+        bg.setColor(0xF40D1017);
+        edge.setColor(0x66FF9F1C); edge.setStyle(Paint.Style.STROKE); edge.setStrokeWidth(d);
         sel.setColor(ACCENT);
         outline.setColor(ACCENT); outline.setStyle(Paint.Style.STROKE); outline.setStrokeWidth(1.5f * d);
         head.setColor(0x99FFFFFF); head.setTextSize(9 * d); head.setFakeBoldText(true);
         item.setColor(0xFFFFFFFF); item.setTextSize(13 * d);
         small.setColor(0x99FFFFFF); small.setTextSize(10 * d);
         rule.setColor(0x33FFFFFF);
-        track.setColor(0x26FFFFFF); thumb.setColor(0xCCF2B85C);
+        track.setColor(0x26FFFFFF); thumb.setColor(0xCCFF9F1C);
     }
 
     /** what the key probe found; until it is set only the universal keys are named */
@@ -70,7 +70,7 @@ public class PickerView extends View {
         int g = group;
         boolean favGroup = g == Favorites.GROUP, mixed = favGroup || g == Favorites.ALL;   // mixed: rows of several brands
         int count = Favorites.groupCount(g, favs, lib);
-        float colX = w * 0.30f;                                 // divider
+        float colX = w * 0.35f;                                 // divider
         int mode = column == 0 ? Keys.H_BRANDS : lib.isCustom(selected) ? Keys.H_RECIPES_CUSTOM : Keys.H_RECIPES;
         Keys.Hints hints = Keys.hints(mode, caps);
         float legTop = h - pad - legend.height(legend.lines(w - 2 * pad, hints)) + 2 * d;   // the legend, on as many lines as it needs
@@ -95,12 +95,13 @@ public class PickerView extends View {
         for (int i = gFirst; i < Math.min(ng, gFirst + gVisible); i++, y += rowH) {
             int gi = Favorites.groupAt(i);
             boolean on = i == gRow, active = on && column == 0;
-            if (on) { r.set(pad - 4 * d, y, gRight, y + rowH); c.drawRoundRect(r, 3 * d, 3 * d, active ? sel : outline); }
+            if (on) { r.set(pad - 4 * d, y, gRight, y + rowH); c.drawRoundRect(r, 4 * d, 4 * d, active ? sel : outline); }
             item.setColor(active ? INK : on || gi < 0 ? ACCENT : 0xCCFFFFFF); item.setFakeBoldText(on);   // All, Favorites and Custom in the accent
-            c.drawText(Favorites.groupName(gi), pad, y + rowH / 2 + item.getTextSize() * 0.36f, item);
-            small.setColor(active ? 0xAA1A1208 : 0x66FFFFFF);
+            small.setColor(active ? 0xAA0E1015 : 0x66FFFFFF);
             String n = String.valueOf(Favorites.groupCount(gi, favs, lib));
-            c.drawText(n, gRight - 6 * d - small.measureText(n), y + rowH / 2 + small.getTextSize() * 0.36f, small);
+            float nX = gRight - 5 * d - small.measureText(n);
+            c.drawText(fit(Favorites.groupName(gi), item, nX - pad - 4 * d), pad, y + rowH / 2 - (item.ascent() + item.descent()) / 2f, item);
+            c.drawText(n, nX, y + rowH / 2 - (small.ascent() + small.descent()) / 2f, small);
             if (i == Favorites.SPECIAL_ROWS - 1) c.drawLine(pad, y + rowH - d, gRight, y + rowH - d, rule);   // set apart from the brands
         }
         item.setFakeBoldText(false);
@@ -114,7 +115,7 @@ public class PickerView extends View {
             small.setColor(0x99FFFFFF);
             c.drawText(Favorites.emptyHint(g), x, listTop + 36 * d, small);
         } else {
-            float rh = 26 * d;
+            float rh = 27 * d;
             int visible = Math.max(1, (int) (listH / rh));
             int selPos = Math.max(0, Favorites.positionIn(g, selected, favs, lib));
             int first = 0;
@@ -125,19 +126,18 @@ public class PickerView extends View {
             for (int k = first; k < Math.min(count, first + visible); k++, y += rh) {
                 int idx = Favorites.recipeAt(g, k, favs, lib);
                 boolean on = idx == selected, active = on && column == 1;
-                if (on) { r.set(x - 4 * d, y, xr, y + rh); c.drawRoundRect(r, 3 * d, 3 * d, active ? sel : outline); }
+                if (on) { r.set(x - 4 * d, y, xr, y + rh); c.drawRoundRect(r, 4 * d, 4 * d, active ? sel : outline); }
                 Recipes.Recipe rc = lib.get(idx);
                 item.setColor(active ? INK : on ? ACCENT : 0xFFFFFFFF); item.setFakeBoldText(on);
-                // under the name only what tells recipes apart: the brand in All and Favorites, the canonical name under a
-                // translated one — the values are on the chips once it is picked. A row with neither centres its name
-                String original = Recipes.originalName(rc), brand = mixed ? Recipes.groupLabel(rc.group) : null;
-                String detail = brand != null && original != null ? brand + "  ·  " + original : brand != null ? brand : original;
-                c.drawText(Recipes.displayName(rc), x, detail == null ? y + rh / 2 + item.getTextSize() * 0.36f : y + 13 * d, item);
-                small.setColor(active ? 0xAA1A1208 : 0x80FFFFFF);
-                if (detail != null) c.drawText(detail, x, y + 22 * d, small);
                 // a Picture Effect recipe works only as JPEG: say so; every other recipe needs no tag
-                float tx = rc.isEffect() ? tag(c, Lang.t("tag_jpeg_only"), xr - 4 * d, y, active, active ? 0x331A1208 : 0x55B8741A, active ? INK : 0xCCFFFFFF) : xr;
-                if (!favGroup && favs.contains(idx)) { star.setColor(active ? INK : ACCENT); Legend.star(c, tx - 4 * d - 6 * d, y + 11 * d, 6 * d, star); }
+                float tx = rc.isEffect() ? tag(c, Lang.t("tag_jpeg_only"), xr - 4 * d, y, active, active ? 0x330E1015 : 0x55FF9F1C, active ? INK : 0xCCFFFFFF) : xr;
+                if (!favGroup && favs.contains(idx)) { star.setColor(active ? INK : ACCENT); Legend.star(c, tx - 4 * d - 6 * d, y + rh / 2, 6 * d, star); tx -= 16 * d; }
+                float maxTextW = tx - x - 6 * d;
+                String original = Lang.current() == Lang.VI ? null : Recipes.originalName(rc), brand = mixed ? Recipes.groupLabel(rc.group) : null;
+                String detail = brand != null && original != null ? brand + "  ·  " + original : brand != null ? brand : original;
+                c.drawText(fit(Recipes.displayName(rc), item, maxTextW), x, detail == null ? y + rh / 2 - (item.ascent() + item.descent()) / 2f : y + 11.5f * d, item);
+                small.setColor(active ? 0xAA0E1015 : 0x80FFFFFF);
+                if (detail != null) c.drawText(fit(detail, small, maxTextW), x, y + 22.5f * d, small);
             }
             item.setFakeBoldText(false);
             if (scroll) scrollbar(c, w - pad - sbW, listTop, listH, sbW, first, visible, count);
@@ -146,6 +146,12 @@ public class PickerView extends View {
         // ---- footer: icon legend
         c.drawLine(pad, legTop - 2 * d, w - pad, legTop - 2 * d, rule);
         legend.drawWrapped(c, pad, legTop, w - 2 * pad, hints);
+    }
+
+    private static String fit(String s, final Paint p, float max) {
+        return TextFit.ellipsize(s, new TextFit.Width() {
+            public float of(String str, int start, int end) { return p.measureText(str, start, end); }
+        }, Math.max(0, max));
     }
 
     /** a small pill ending at {@code right} on the row at {@code y}; returns its left edge */

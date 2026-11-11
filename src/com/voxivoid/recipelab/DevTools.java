@@ -16,7 +16,7 @@ final class DevTools {
     private DevTools() {}
 
     /** the app menu's title: the app's name, which no language translates */
-    static final String APP_TITLE = "RECIPE LAB";
+    static final String APP_TITLE = "MÀU CỦA TANH";
     static String title() { return Lang.t("dev_title"); }
     static String aboutTitle() { return Lang.t("about_title"); }
 
@@ -146,19 +146,15 @@ final class DevTools {
         };
     }
 
-    /**
-     * The About page's footer, centred under the facts: the sponsor ask (drawn after a heart), then where to give —
-     * Ko-fi first, as it needs no GitHub account.
-     */
+    /** The About page's footer (disabled: no donate/tip prompts — "about_love", "sponsor_line"). */
     static String[] aboutFooter() {
-        return new String[] { Lang.t("about_love"), SPONSOR_URL, "github.com/sponsors/voxivoid" };
+        return new String[0];
     }
 
-    /** the line at the top of the live view, after its drawn heart: the ask and where to give */
-    static String sponsorLine() { return Lang.t("about_love") + "  " + SPONSOR_URL; }
+    /** the line at the top of the live view (disabled: no donate/tip prompts) */
+    static String sponsorLine() { return ""; }
 
-    /** where the sponsor ask sends people: Ko-fi, which needs no account anywhere */
-    static final String SPONSOR_URL = "ko-fi.com/voxivoid";
+    static final String SPONSOR_URL = "";
 
     // ------------------------------------------------------------ Transfer to phone
     static String transferTitle() { return Lang.t("transfer_title"); }
