@@ -6,8 +6,8 @@ final class PictureProfiles {
 
     static final String[] KEYS = { "pp-slot", "pp-mode", "pp-black", "pp-saturation", "pp-phase",
             "pp-depth-r", "pp-depth-g", "pp-depth-b", "pp-depth-c", "pp-depth-m", "pp-depth-y", "pp-detail" };
-    static final int[] MIN = { 1, 1, -15, -32, -7, -7, -7, -7, -7, -7, -7, -7 };
-    static final int[] MAX = { 9, 4, 15, 32, 7, 7, 7, 7, 7, 7, 7, 7 };
+    static final int[] MIN = { 1, 0, -15, -32, -7, -7, -7, -7, -7, -7, -7, -7 };
+    static final int[] MAX = { 9, 15, 15, 32, 7, 7, 7, 7, 7, 7, 7, 7 };
 
     static int[] values(Recipes.PpProfile p) {
         return new int[] { p.pp, p.mode, p.black, p.sat, p.phase, p.r, p.g, p.b, p.c, p.m, p.y, p.detail };

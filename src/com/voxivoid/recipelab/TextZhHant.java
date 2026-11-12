@@ -318,8 +318,7 @@ final class TextZhHant {
 
         // ---- brands
         { "group_sony", "Sony" },
-        { "group_fuji_sim", "富士模擬" },
-        { "group_fuji_film", "富士底片" },
+        { "group_fuji", "富士" },
         { "group_kodak", "柯達" },
         { "group_cine", "電影" },
         { "group_ricoh_gr", "Ricoh GR" },
@@ -408,5 +407,17 @@ final class TextZhHant {
         { "recipe_ilford_delta_100", "伊爾福 Delta 100" },
         { "recipe_ilford_delta_3200", "伊爾福 Delta 3200" },
         { "recipe_ilford_pan_f_50", "伊爾福 Pan F 50" },
+
+        // ---- categories
+        { "cat_portrait", "人像" },
+        { "cat_street", "人文" },
+        { "cat_cine", "電影" },
+        { "cat_landscape", "風光" },
+        { "cat_mono", "黑白" },
+        { "cat_standard", "標準" },
+        { "cat_vintage", "復古" },
+        { "cat_art", "創意" },
+        { "cat_natural", "自然" },
+        { "compare_sony_original", "Sony 原色 (C1/AEL)" },
     };
 }

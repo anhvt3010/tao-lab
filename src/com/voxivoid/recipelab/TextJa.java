@@ -320,8 +320,7 @@ final class TextJa {
 
         // ---- brands
         { "group_sony", "ソニー" },
-        { "group_fuji_sim", "フィルムシミュレーション" },
-        { "group_fuji_film", "富士フイルム" },
+        { "group_fuji", "富士" },
         { "group_kodak", "コダック" },
         { "group_cine", "シネマ" },
         { "group_ricoh_gr", "リコー GR" },
@@ -410,5 +409,17 @@ final class TextJa {
         { "recipe_ilford_delta_100", "イルフォード Delta 100" },
         { "recipe_ilford_delta_3200", "イルフォード Delta 3200" },
         { "recipe_ilford_pan_f_50", "イルフォード Pan F 50" },
+
+        // ---- categories
+        { "cat_portrait", "ポートレート" },
+        { "cat_street", "スナップ" },
+        { "cat_cine", "シネマ" },
+        { "cat_landscape", "風景" },
+        { "cat_mono", "モノクロ" },
+        { "cat_standard", "スタンダード" },
+        { "cat_vintage", "レトロ" },
+        { "cat_art", "クリエイティブ" },
+        { "cat_natural", "ナチュラル" },
+        { "compare_sony_original", "ソニー 元の色 (C1/AEL)" },
     };
 }

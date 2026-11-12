@@ -267,6 +267,23 @@ class RecipesTest {
         assertEquals(solo, Recipes.nextInGroup(solo, -1));
     }
 
+    @Test void nextCategoryInGroupJumpsAcrossCategories() {
+        int fuji = 1, start = Recipes.GROUP_START[fuji];
+        int firstCat = Recipes.categoryCode(Recipes.ALL[start]);
+        int next = Recipes.nextCategoryInGroup(start, +1);
+        assertNotEquals(firstCat, Recipes.categoryCode(Recipes.ALL[next]), "jumps to a different category");
+        int back = Recipes.nextCategoryInGroup(next, -1);
+        assertEquals(start, back, "jumps back to start of previous category");
+    }
+
+    @Test void nextCategoryInAllJumpsAcrossCategories() {
+        int firstCat = Recipes.categoryCode(Recipes.ALL[0]);
+        int next = Recipes.nextCategoryInAll(0, +1);
+        assertNotEquals(firstCat, Recipes.categoryCode(Recipes.ALL[next]), "jumps to a different category in all");
+        int back = Recipes.nextCategoryInAll(next, -1);
+        assertEquals(0, back, "jumps back to start");
+    }
+
     @Test void everySubValueIsOneTheCameraLists() {
         // the pe-…-effect-values lists an A6000 reports in its camera parameters
         Map<String, List<String>> camera = new HashMap<String, List<String>>();

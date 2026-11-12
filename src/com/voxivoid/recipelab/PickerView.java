@@ -32,6 +32,14 @@ public class PickerView extends View {
     private List<Integer> favs = new ArrayList<Integer>();
     private Library lib = new Library();
     private boolean card = true;                                  // a memory card is in, so custom recipes can be kept
+    private long marqueeStart = 0;
+    private boolean marqueeNeeded = false;
+    private final Runnable ticker = new Runnable() {
+        @Override
+        public void run() {
+            if (marqueeNeeded && getVisibility() == VISIBLE) invalidate();
+        }
+    };
 
     public PickerView(Context c, AttributeSet a) {
         super(c, a);
@@ -59,13 +67,30 @@ public class PickerView extends View {
      * marking order, the recipes with the custom ones, and whether a memory card is in.
      */
     public void set(int recipe, int col, int grp, List<Integer> favorites, Library library, boolean cardIn) {
+        if (recipe != selected || col != column || grp != group) {
+            marqueeStart = System.currentTimeMillis();
+            removeCallbacks(ticker);
+        }
         selected = recipe; column = col; group = grp; favs = favorites; lib = library; card = cardIn; invalidate();
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        removeCallbacks(ticker);
+    }
+
+    @Override
+    protected void onVisibilityChanged(View changedView, int visibility) {
+        super.onVisibilityChanged(changedView, visibility);
+        if (visibility != VISIBLE) removeCallbacks(ticker);
     }
 
     @Override
     protected void onDraw(Canvas c) {
         float w = getWidth(), h = getHeight(), pad = 12 * d;
         c.drawRect(0, 0, w, h, bg);
+        marqueeNeeded = false;
 
         int g = group;
         boolean favGroup = g == Favorites.GROUP, mixed = favGroup || g == Favorites.ALL;   // mixed: rows of several brands
@@ -100,7 +125,7 @@ public class PickerView extends View {
             small.setColor(active ? 0xAA0E1015 : 0x66FFFFFF);
             String n = String.valueOf(Favorites.groupCount(gi, favs, lib));
             float nX = gRight - 5 * d - small.measureText(n);
-            c.drawText(fit(Favorites.groupName(gi), item, nX - pad - 4 * d), pad, y + rowH / 2 - (item.ascent() + item.descent()) / 2f, item);
+            drawTextMarquee(c, Favorites.groupName(gi), item, pad, y + rowH / 2 - (item.ascent() + item.descent()) / 2f, nX - pad - 4 * d, active);
             c.drawText(n, nX, y + rowH / 2 - (small.ascent() + small.descent()) / 2f, small);
             if (i == Favorites.SPECIAL_ROWS - 1) c.drawLine(pad, y + rowH - d, gRight, y + rowH - d, rule);   // set apart from the brands
         }
@@ -115,37 +140,120 @@ public class PickerView extends View {
             small.setColor(0x99FFFFFF);
             c.drawText(Favorites.emptyHint(g), x, listTop + 36 * d, small);
         } else {
+            List<BrowserEntry> entries = new ArrayList<BrowserEntry>();
+            if (g >= 0) {
+                int prevCat = -1;
+                for (int k = 0; k < count; k++) {
+                    int idx = Favorites.recipeAt(g, k, favs, lib);
+                    Recipes.Recipe rc = lib.get(idx);
+                    int cat = Recipes.categoryCode(rc);
+                    if (cat != prevCat) {
+                        entries.add(new BrowserEntry("— " + Recipes.category(rc).toUpperCase() + " —"));
+                        prevCat = cat;
+                    }
+                    entries.add(new BrowserEntry(idx));
+                }
+            } else {
+                for (int k = 0; k < count; k++) {
+                    entries.add(new BrowserEntry(Favorites.recipeAt(g, k, favs, lib)));
+                }
+            }
+            int totalEntries = entries.size();
+            int selPos = 0;
+            for (int i = 0; i < totalEntries; i++) {
+                BrowserEntry e = entries.get(i);
+                if (!e.isHeader && e.recipeIndex == selected) {
+                    selPos = i;
+                    break;
+                }
+            }
             float rh = 27 * d;
             int visible = Math.max(1, (int) (listH / rh));
-            int selPos = Math.max(0, Favorites.positionIn(g, selected, favs, lib));
+            boolean scroll = totalEntries > visible;
             int first = 0;
-            boolean scroll = count > visible;
-            if (scroll) { first = Math.max(0, Math.min(selPos - visible / 2, count - visible)); }
+            if (scroll) { first = Math.max(0, Math.min(selPos - visible / 2, totalEntries - visible)); }
             float xr = w - pad - (scroll ? sbW + 6 * d : 0);
             y = listTop;
-            for (int k = first; k < Math.min(count, first + visible); k++, y += rh) {
-                int idx = Favorites.recipeAt(g, k, favs, lib);
-                boolean on = idx == selected, active = on && column == 1;
-                if (on) { r.set(x - 4 * d, y, xr, y + rh); c.drawRoundRect(r, 4 * d, 4 * d, active ? sel : outline); }
-                Recipes.Recipe rc = lib.get(idx);
-                item.setColor(active ? INK : on ? ACCENT : 0xFFFFFFFF); item.setFakeBoldText(on);
-                // a Picture Effect recipe works only as JPEG: say so; every other recipe needs no tag
-                float tx = rc.isEffect() ? tag(c, Lang.t("tag_jpeg_only"), xr - 4 * d, y, active, active ? 0x330E1015 : 0x55FF9F1C, active ? INK : 0xCCFFFFFF) : xr;
-                if (!favGroup && favs.contains(idx)) { star.setColor(active ? INK : ACCENT); Legend.star(c, tx - 4 * d - 6 * d, y + rh / 2, 6 * d, star); tx -= 16 * d; }
-                float maxTextW = tx - x - 6 * d;
-                String original = Lang.current() == Lang.VI ? null : Recipes.originalName(rc), brand = mixed ? Recipes.groupLabel(rc.group) : null;
-                String detail = brand != null && original != null ? brand + "  ·  " + original : brand != null ? brand : original;
-                c.drawText(fit(Recipes.displayName(rc), item, maxTextW), x, detail == null ? y + rh / 2 - (item.ascent() + item.descent()) / 2f : y + 11.5f * d, item);
-                small.setColor(active ? 0xAA0E1015 : 0x80FFFFFF);
-                if (detail != null) c.drawText(fit(detail, small, maxTextW), x, y + 22.5f * d, small);
+            for (int k = first; k < Math.min(totalEntries, first + visible); k++, y += rh) {
+                BrowserEntry entry = entries.get(k);
+                if (entry.isHeader) {
+                    small.setColor(ACCENT);
+                    small.setFakeBoldText(true);
+                    float textY = y + rh / 2 - (small.ascent() + small.descent()) / 2f;
+                    c.drawText(entry.headerText, x, textY, small);
+                    float tw = small.measureText(entry.headerText);
+                    if (x + tw + 8 * d < xr) {
+                        c.drawLine(x + tw + 8 * d, y + rh / 2, xr, y + rh / 2, rule);
+                    }
+                    small.setFakeBoldText(false);
+                } else {
+                    int idx = entry.recipeIndex;
+                    boolean on = idx == selected, active = on && column == 1;
+                    if (on) { r.set(x - 4 * d, y, xr, y + rh); c.drawRoundRect(r, 4 * d, 4 * d, active ? sel : outline); }
+                    Recipes.Recipe rc = lib.get(idx);
+                    item.setColor(active ? INK : on ? ACCENT : 0xFFFFFFFF); item.setFakeBoldText(on);
+                    // a Picture Effect recipe works only as JPEG: say so; every other recipe needs no tag
+                    float tx = rc.isEffect() ? tag(c, Lang.t("tag_jpeg_only"), xr - 4 * d, y, active, active ? 0x330E1015 : 0x55FF9F1C, active ? INK : 0xCCFFFFFF) : xr;
+                    if (!favGroup && favs.contains(idx)) { star.setColor(active ? INK : ACCENT); Legend.star(c, tx - 4 * d - 6 * d, y + rh / 2, 6 * d, star); tx -= 16 * d; }
+                    float maxTextW = tx - x - 6 * d;
+                    String orig = Recipes.originalName(rc);
+                    String brand = mixed ? Recipes.groupLabel(rc.group) : null;
+                    String cat = g < 0 ? Recipes.category(rc) : null;
+                    String detail = brand != null && orig != null ? brand + "  ·  " + orig :
+                                    brand != null ? brand :
+                                    cat != null && orig != null ? cat + "  ·  " + orig :
+                                    cat != null ? cat : orig;
+                    drawTextMarquee(c, Recipes.displayName(rc), item, x, detail == null ? y + rh / 2 - (item.ascent() + item.descent()) / 2f : y + 11.5f * d, maxTextW, active);
+                    small.setColor(active ? 0xAA0E1015 : 0x80FFFFFF);
+                    if (detail != null) drawTextMarquee(c, detail, small, x, y + 22.5f * d, maxTextW, active);
+                }
             }
             item.setFakeBoldText(false);
-            if (scroll) scrollbar(c, w - pad - sbW, listTop, listH, sbW, first, visible, count);
+            if (scroll) scrollbar(c, w - pad - sbW, listTop, listH, sbW, first, visible, totalEntries);
         }
 
         // ---- footer: icon legend
         c.drawLine(pad, legTop - 2 * d, w - pad, legTop - 2 * d, rule);
         legend.drawWrapped(c, pad, legTop, w - 2 * pad, hints);
+    }
+
+    private void drawTextMarquee(Canvas c, String text, Paint paint, float x, float y, float maxW, boolean active) {
+        if (text == null || text.length() == 0) return;
+        float textW = paint.measureText(text);
+        if (textW <= maxW) {
+            c.drawText(text, x, y, paint);
+            return;
+        }
+        if (!active) {
+            c.drawText(fit(text, paint, maxW), x, y, paint);
+            return;
+        }
+        marqueeNeeded = true;
+        long elapsed = System.currentTimeMillis() - marqueeStart;
+        float overflow = textW - maxW;
+        float speed = 35 * d; // 35 dp per second
+        long scrollDuration = (long) ((overflow / speed) * 1000);
+        long pauseStart = 1000; // 1s pause at start
+        long pauseEnd = 1000;   // 1s pause at end
+        long totalCycle = pauseStart + scrollDuration + pauseEnd;
+
+        float offset;
+        long timeInCycle = elapsed % totalCycle;
+        if (timeInCycle < pauseStart) {
+            offset = 0;
+        } else if (timeInCycle < pauseStart + scrollDuration) {
+            offset = (timeInCycle - pauseStart) * (overflow / scrollDuration);
+        } else {
+            offset = overflow;
+        }
+
+        c.save();
+        c.clipRect(x, y + paint.ascent() - 2 * d, x + maxW, y + paint.descent() + 2 * d);
+        c.drawText(text, x - offset, y, paint);
+        c.restore();
+
+        removeCallbacks(ticker);
+        postDelayed(ticker, 40);
     }
 
     private static String fit(String s, final Paint p, float max) {
@@ -172,5 +280,21 @@ public class PickerView extends View {
         float thumbH = Math.max(12 * d, height * visible / total);
         float thumbY = top + (height - thumbH) * first / Math.max(1, total - visible);
         r.set(x, thumbY, x + width, thumbY + thumbH); c.drawRoundRect(r, width / 2, width / 2, thumb);
+    }
+
+    private static class BrowserEntry {
+        final boolean isHeader;
+        final String headerText;
+        final int recipeIndex;
+        BrowserEntry(String headerText) {
+            this.isHeader = true;
+            this.headerText = headerText;
+            this.recipeIndex = -1;
+        }
+        BrowserEntry(int recipeIndex) {
+            this.isHeader = false;
+            this.headerText = null;
+            this.recipeIndex = recipeIndex;
+        }
     }
 }

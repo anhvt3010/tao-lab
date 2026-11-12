@@ -144,7 +144,7 @@ class LangTest {
         assertEquals("经典正片", Recipes.displayName(r));
         assertEquals("Classic Chrome", Recipes.originalName(r));
         assertEquals("Classic Chrome", r.name, "the identifier favorites and the manifest use never changes");
-        assertEquals("柯达", Recipes.groupLabel(3));
+        assertEquals("柯达", Recipes.groupLabel(2));
         assertEquals("饱和度", Params.rowName(Params.R_SAT));
         assertEquals("自动", Recipes.droLabel(Recipes.DRO_AUTO));
         Lang.use(Lang.ZH_HANT);

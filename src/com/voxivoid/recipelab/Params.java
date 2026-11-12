@@ -256,6 +256,8 @@ final class Params {
         List<Write> w = new ArrayList<Write>(writes(cur, edit, storedSub));
         if (r != null && r.ppProfile != null && edit[R_PE] == 0 && edit[R_PP] >= 1 && edit[R_PP] <= 9) {
             int pp = edit[R_PP];
+            Write ppNo = new Write(ID_PP_NO, pp);
+            if (!w.contains(ppNo)) w.add(ppNo);
             Recipes.PpProfile p = r.ppProfile;
             w.add(new Write(ppSlot(K_BLACK_LEVEL, pp), clamp(p.black, -15, 15)));
             w.add(new Write(ppSlot(K_DEPTH_B, pp), clamp(p.b, -7, 7)));
@@ -448,7 +450,7 @@ final class Params {
     }
 
     // ------------------------------------------------------------ live preview
-    private static int clamp(int v, int lo, int hi) { return Math.max(lo, Math.min(hi, v)); }
+    static int clamp(int v, int lo, int hi) { return Math.max(lo, Math.min(hi, v)); }
 
     /** the Camera.Parameters the staged values translate to, in the order they are set */
     static Map<String, String> preview(int[] edit) {

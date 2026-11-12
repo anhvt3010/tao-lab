@@ -320,8 +320,7 @@ final class TextKo {
 
         // ---- brands
         { "group_sony", "소니" },
-        { "group_fuji_sim", "후지 필름 시뮬" },
-        { "group_fuji_film", "후지필름" },
+        { "group_fuji", "후지필름" },
         { "group_kodak", "코닥" },
         { "group_cine", "시네마" },
         { "group_ricoh_gr", "리코 GR" },
@@ -410,5 +409,17 @@ final class TextKo {
         { "recipe_ilford_delta_100", "일포드 Delta 100" },
         { "recipe_ilford_delta_3200", "일포드 Delta 3200" },
         { "recipe_ilford_pan_f_50", "일포드 Pan F 50" },
+
+        // ---- categories
+        { "cat_portrait", "인물" },
+        { "cat_street", "스냅" },
+        { "cat_cine", "시네마" },
+        { "cat_landscape", "풍경" },
+        { "cat_mono", "흑백" },
+        { "cat_standard", "표준" },
+        { "cat_vintage", "레트로" },
+        { "cat_art", "크리에이티브" },
+        { "cat_natural", "내추럴" },
+        { "compare_sony_original", "소니 원래 색 (C1/AEL)" },
     };
 }

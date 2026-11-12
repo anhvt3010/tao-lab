@@ -159,6 +159,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     private int wheelGroup = Favorites.ALL;          // the group the wheel loops through: where the last recipe was picked (issue #155)
     private int lastChip = 0;                         // chip to return to when leaving the recipe line
     private final int[] cur = new int[N], edit = new int[N];
+    // A/B compare (hold C1/AEL on shooting screen to preview Sony original look)
+    private boolean comparing = false;
+    private final int[] compareSavedEdit = new int[N];
+    private int compareSavedRecipe = 0;
     private boolean previewOk = false;
     private String previewErr = "";
     // the shareable log on the card (CardLog): the last preview line written, so a failure repeated per key press is logged once
@@ -185,7 +189,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         picker = (PickerView) findViewById(R.id.picker);
         chipScroll = (HorizontalScrollView) findViewById(R.id.chipscroll);
         name = (TextView) findViewById(R.id.name);
+        name.setSelected(true);
         nameOriginal = (TextView) findViewById(R.id.name_original);
+        nameOriginal.setSelected(true);
         badge = (TextView) findViewById(R.id.badge);
         editedBadge = (TextView) findViewById(R.id.edited);
         tag = (TextView) findViewById(R.id.tag);
@@ -369,6 +375,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     @Override
     protected void onPause() {
         super.onPause();
+        if (comparing) stopCompare();
         resumed = false;
         stopRun(false);                                          // a run cannot outlive the camera it shoots with
         stopTransfer();                                          // leaving the app stops Transfer to phone: hotspot off, auto power-off back
@@ -1604,13 +1611,19 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     /** Read the stored profile for New recipe; a row array does not contain its payload. */
     private Recipes.PpProfile profileFor(int[] rows) throws NativeException {
         int pp = rows[R_PP];
-        if (pp == 0 || rows[R_PE] != 0) return null;
-        return PictureProfiles.from(new int[] { pp, rdu(ppSlot(K_GAMMA_MODE, pp)),
-                NativeBackup.readByte(ppSlot(K_BLACK_LEVEL, pp)), NativeBackup.readByte(ppSlot(K_PP_SAT, pp)),
-                NativeBackup.readByte(ppSlot(K_COLOR_PHASE, pp)), NativeBackup.readByte(ppSlot(K_DEPTH_R, pp)),
-                NativeBackup.readByte(ppSlot(K_DEPTH_G, pp)), NativeBackup.readByte(ppSlot(K_DEPTH_B, pp)),
-                NativeBackup.readByte(ppSlot(K_DEPTH_C, pp)), NativeBackup.readByte(ppSlot(K_DEPTH_M, pp)),
-                NativeBackup.readByte(ppSlot(K_DEPTH_Y, pp)), NativeBackup.readByte(ppSlot(K_DETAIL_LVL, pp)) });
+        if (pp < 1 || pp > 9 || rows[R_PE] != 0) return null;
+        int mode = clamp(rdu(ppSlot(K_GAMMA_MODE, pp)), PictureProfiles.MIN[1], PictureProfiles.MAX[1]);
+        int black = clamp(NativeBackup.readByte(ppSlot(K_BLACK_LEVEL, pp)), PictureProfiles.MIN[2], PictureProfiles.MAX[2]);
+        int sat = clamp(NativeBackup.readByte(ppSlot(K_PP_SAT, pp)), PictureProfiles.MIN[3], PictureProfiles.MAX[3]);
+        int phase = clamp(NativeBackup.readByte(ppSlot(K_COLOR_PHASE, pp)), PictureProfiles.MIN[4], PictureProfiles.MAX[4]);
+        int r = clamp(NativeBackup.readByte(ppSlot(K_DEPTH_R, pp)), PictureProfiles.MIN[5], PictureProfiles.MAX[5]);
+        int g = clamp(NativeBackup.readByte(ppSlot(K_DEPTH_G, pp)), PictureProfiles.MIN[6], PictureProfiles.MAX[6]);
+        int b = clamp(NativeBackup.readByte(ppSlot(K_DEPTH_B, pp)), PictureProfiles.MIN[7], PictureProfiles.MAX[7]);
+        int c = clamp(NativeBackup.readByte(ppSlot(K_DEPTH_C, pp)), PictureProfiles.MIN[8], PictureProfiles.MAX[8]);
+        int m = clamp(NativeBackup.readByte(ppSlot(K_DEPTH_M, pp)), PictureProfiles.MIN[9], PictureProfiles.MAX[9]);
+        int y = clamp(NativeBackup.readByte(ppSlot(K_DEPTH_Y, pp)), PictureProfiles.MIN[10], PictureProfiles.MAX[10]);
+        int detail = clamp(NativeBackup.readByte(ppSlot(K_DETAIL_LVL, pp)), PictureProfiles.MIN[11], PictureProfiles.MAX[11]);
+        return new Recipes.PpProfile(pp, mode, black, sat, phase, r, g, b, c, m, y, detail);
     }
 
     /** keeps the complete look as a new custom recipe */
@@ -1681,6 +1694,28 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         render();
     }
 
+    // ------------------------------------------------------------ A/B compare (hold C1/AEL on shooting screen)
+    private void startCompare() {
+        if (overlay == OV_BROWSER || promptOpen || nameOpen || qrOpen || menuOpen || running) return;
+        System.arraycopy(edit, 0, compareSavedEdit, 0, edit.length);
+        compareSavedRecipe = recipe;
+        Params.stage(Recipes.ALL[Recipes.FACTORY], edit);
+        comparing = true;
+        applyPreviewNow();
+        render();
+        if (!panelUp(overlay) && overlay != OV_PILL) showToast(Lang.t("compare_sony_original"), 0);
+    }
+
+    private void stopCompare() {
+        if (!comparing) return;
+        System.arraycopy(compareSavedEdit, 0, edit, 0, edit.length);
+        recipe = compareSavedRecipe;
+        comparing = false;
+        applyPreviewNow();
+        render();
+        if (!panelUp(overlay) && overlay != OV_PILL) toast.setVisibility(View.GONE);
+    }
+
     // ------------------------------------------------------------ live preview (runtime params, debounced for instant UI)
     private static final int PREVIEW_DEBOUNCE_MS = 35;
     private final Runnable deferredPreview = new Runnable() { public void run() { applyPreviewNow(); } };
@@ -1729,42 +1764,64 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         if (overlay == OV_BROWSER) { panel.setVisibility(View.GONE); mini.setVisibility(View.GONE); picker.set(recipe, browserCol, browserGroup, favs, library, cardDir != null); return; }
         if (panelUp(overlay)) {
             panel.setVisibility(View.VISIBLE); mini.setVisibility(View.GONE);
-            name.setText(Recipes.displayName(r));
-            name.setTextColor(row == 0 ? ACCENT : WHITE);
-            String original = Lang.current() == Lang.VI ? null : Recipes.originalName(r);
-            nameOriginal.setText(original == null ? "" : original);
-            nameOriginal.setVisibility(original == null ? View.GONE : View.VISIBLE);
-            count.setText(Favorites.wheelCount(wheelGroup, recipe, favs, library));
-            tag.setText(Lang.t("tag_jpeg_only"));                    // a Picture Effect: the camera drops it under RAW
-            tag.setTextColor(ACCENT);
-            tag.setVisibility(edit[R_PE] != 0 ? View.VISIBLE : View.GONE);
-            fav.setVisibility(favs.contains(recipe) ? View.VISIBLE : View.GONE);
-            // two questions, two badges: does the camera have what you see (ACTIVE / PREVIEW), and is it the recipe as it was (EDITED)
-            if (dirty) { badge.setText(Lang.t("state_preview")); badge.setBackgroundResource(R.drawable.badge_warn); }
-            else { badge.setText(Lang.t("state_active")); badge.setBackgroundResource(R.drawable.badge_ok); }
-            editedBadge.setText(Lang.t("state_edited"));
-            editedBadge.setVisibility(isEdited ? View.VISIBLE : View.GONE);
-            String m = Params.metaLine(edit, previewOk ? null : previewErr);   // warnings first; else Deep-Color PP readout
-            if (m.isEmpty() && r.ppProfile != null && edit[R_PE] == 0 && edit[R_PP] > 0) {
-                m = ppSummary(r.ppProfile, edit[R_PP]);
+            if (comparing) {
+                name.setText(Lang.t("compare_sony_original"));
+                name.setSelected(true);
+                name.setTextColor(ACCENT);
+                nameOriginal.setVisibility(View.GONE);
+                count.setText(Favorites.wheelCount(wheelGroup, recipe, favs, library));
+                tag.setVisibility(View.GONE);
+                fav.setVisibility(View.GONE);
+                badge.setText("A/B");
+                badge.setBackgroundResource(R.drawable.badge_warn);
+                editedBadge.setVisibility(View.GONE);
+                meta.setVisibility(View.GONE);
+                for (int i : ORDER) chip[i].setVisibility(View.GONE);
+            } else {
+                name.setText(Recipes.displayName(r));
+                name.setSelected(true);
+                name.setTextColor(row == 0 ? ACCENT : WHITE);
+                String orig = Recipes.originalName(r);
+                String brand = Recipes.groupLabel(r.group);
+                String cat = Recipes.category(r);
+                String original = r.isCustom() ? null :
+                    (cat != null ? brand + "  ·  " + cat + (orig != null ? "  ·  " + orig : "") :
+                    brand + (orig != null ? "  ·  " + orig : ""));
+                nameOriginal.setText(original == null ? "" : original);
+                nameOriginal.setSelected(true);
+                nameOriginal.setVisibility(original == null ? View.GONE : View.VISIBLE);
+                count.setText(Favorites.wheelCount(wheelGroup, recipe, favs, library));
+                tag.setText(Lang.t("tag_jpeg_only"));                    // a Picture Effect: the camera drops it under RAW
+                tag.setTextColor(ACCENT);
+                tag.setVisibility(edit[R_PE] != 0 ? View.VISIBLE : View.GONE);
+                fav.setVisibility(favs.contains(recipe) ? View.VISIBLE : View.GONE);
+                // two questions, two badges: does the camera have what you see (ACTIVE / PREVIEW), and is it the recipe as it was (EDITED)
+                if (dirty) { badge.setText(Lang.t("state_preview")); badge.setBackgroundResource(R.drawable.badge_warn); }
+                else { badge.setText(Lang.t("state_active")); badge.setBackgroundResource(R.drawable.badge_ok); }
+                editedBadge.setText(Lang.t("state_edited"));
+                editedBadge.setVisibility(isEdited ? View.VISIBLE : View.GONE);
+                String m = Params.metaLine(edit, previewOk ? null : previewErr);   // warnings first; else Deep-Color PP readout
+                if (m.isEmpty() && r.ppProfile != null && edit[R_PE] == 0 && edit[R_PP] > 0) {
+                    m = ppSummary(r.ppProfile, edit[R_PP]);
+                }
+                meta.setText(m);
+                meta.setVisibility(m.isEmpty() ? View.GONE : View.VISIBLE);
+                int subVal = storedSub();
+                boolean relayoutChips = false;
+                for (int i : ORDER) {
+                    int wantVis = rowVisible(i) ? View.VISIBLE : View.GONE;
+                    if (chip[i].getVisibility() != wantVis) { chip[i].setVisibility(wantVis); relayoutChips = true; }
+                    boolean sel = i == row, ch = Params.rowDirty(i, cur, edit, subVal), foc = sel && focus;
+                    chip[i].setBackgroundResource(foc ? R.drawable.chip_sel : sel ? R.drawable.chip_hi : R.drawable.chip);
+                    String lbl = Params.rowName(i);
+                    if (!lbl.contentEquals(chipLabel[i].getText())) { chipLabel[i].setText(lbl); chip[i].requestLayout(); relayoutChips = true; }
+                    chipLabel[i].setTextColor(foc ? INK : sel ? ACCENT : DIM);
+                    chipValue[i].setTextColor(foc ? INK : ch ? ACCENT : WHITE);
+                    String val = Params.fmt(i, edit[i], edit);
+                    if (!val.contentEquals(chipValue[i].getText())) { chipValue[i].setText(val); chip[i].requestLayout(); relayoutChips = true; }
+                }
+                if (relayoutChips) chips.requestLayout();
             }
-            meta.setText(m);
-            meta.setVisibility(m.isEmpty() ? View.GONE : View.VISIBLE);
-            int subVal = storedSub();
-            boolean relayoutChips = false;
-            for (int i : ORDER) {
-                int wantVis = rowVisible(i) ? View.VISIBLE : View.GONE;
-                if (chip[i].getVisibility() != wantVis) { chip[i].setVisibility(wantVis); relayoutChips = true; }
-                boolean sel = i == row, ch = Params.rowDirty(i, cur, edit, subVal), foc = sel && focus;
-                chip[i].setBackgroundResource(foc ? R.drawable.chip_sel : sel ? R.drawable.chip_hi : R.drawable.chip);
-                String lbl = Params.rowName(i);
-                if (!lbl.contentEquals(chipLabel[i].getText())) { chipLabel[i].setText(lbl); chip[i].requestLayout(); relayoutChips = true; }
-                chipLabel[i].setTextColor(foc ? INK : sel ? ACCENT : DIM);
-                chipValue[i].setTextColor(foc ? INK : ch ? ACCENT : WHITE);
-                String val = Params.fmt(i, edit[i], edit);
-                if (!val.contentEquals(chipValue[i].getText())) { chipValue[i].setText(val); chip[i].requestLayout(); relayoutChips = true; }
-            }
-            if (relayoutChips) chips.requestLayout();
             if (row != lastScrolledRow) {
                 lastScrolledRow = row;
                 if (row == 0) chipScroll.scrollTo(0, 0);
@@ -1781,7 +1838,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
             hints.setMode(row == 0 ? HintBar.RECIPE : focus ? HintBar.EDIT : HintBar.CHIPS);
         } else if (overlay == OV_PILL) {
             panel.setVisibility(View.GONE); mini.setVisibility(View.VISIBLE);
-            mini.setText(Params.miniLine(r, pos, cur, edit, dirty));
+            mini.setText(comparing ? Lang.t("compare_sony_original") : Params.miniLine(r, pos, cur, edit, dirty));
         } else {
             panel.setVisibility(View.GONE); mini.setVisibility(View.GONE);
         }
@@ -1799,7 +1856,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     private void browse() { openBrowser(true); }
 
     /** MENU: out of the app */
-    private void leave() { finish(); }
+    private void leave() { if (comparing) stopCompare(); finish(); }
 
     /** LEFT/RIGHT inside the chip strip: next / previous visible chip, wrapping */
     private void moveChip(int dir) { row = Params.nextChip(row, dir, edit); lastChip = row; render(); }
@@ -1828,6 +1885,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     }
 
     private void openBrowser(boolean open) {
+        if (comparing) stopCompare();
         if (open) panelBefore = overlay;
         overlay = open ? OV_BROWSER : fullPanel(); row = 0; focus = false;
         browserGroup = Favorites.openingGroup(favs, recipe, library, wheelGroup);
@@ -1900,7 +1958,34 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         if (overlay == OV_BROWSER) openBrowser(false); else cycleOverlay();
     }
 
+    /** recipe column: next / previous category section, wrapping */
+    private void nextCategory(int dir) {
+        if (browserCol != COL_RECIPES) return;
+        int to;
+        if (browserGroup >= 0) {
+            to = Recipes.nextCategoryInGroup(recipe, dir);
+        } else if (browserGroup == Favorites.ALL) {
+            to = Recipes.nextCategoryInAll(recipe, dir);
+        } else {
+            to = Favorites.nextIn(browserGroup, recipe, dir, favs, library);
+        }
+        if (to < 0 || to == recipe) return;
+        recipe = to;
+        showRecipe(); render(); applyPreview();
+    }
+
+    private boolean isTopDial(int sc) {
+        if (sc == K_DIAL_CW || sc == K_DIAL_CCW || sc == K_DIAL2_CW || sc == K_DIAL2_CCW || sc == K_DIAL3_CW || sc == K_DIAL3_CCW) {
+            return Boolean.TRUE.equals(KeyProbe.has(Keys.K_WHEEL_STATUS));
+        }
+        return false;
+    }
+
     private boolean browserKey(int sc) {
+        if (browserCol == COL_RECIPES) {
+            if (sc == K_C1 || (isTopDial(sc) && turn(sc) > 0)) { nextCategory(+1); return true; }
+            if (sc == K_AEL || (isTopDial(sc) && turn(sc) < 0)) { nextCategory(-1); return true; }
+        }
         int dir = sc == K_UP ? -1 : sc == K_DOWN ? +1 : turn(sc);
         if (dir != 0) { if (browserCol == COL_GROUPS) nextGroup(dir); else nextInGroup(dir); return true; }
         switch (sc) {
@@ -1977,8 +2062,12 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         if (menuOpen && menuPage == PAGE_TRANSFER && transfer != null) return transferKey(sc, e.getRepeatCount());
         if (menuOpen) return menuKey(sc);
         if (sc == K_ENTER) { enterDown(e.getRepeatCount()); return true; }
-        if (sc == K_AEL || sc == K_C1 || sc == K_DISP) return true;   // not bound on any screen (issue #18)
         if (overlay == OV_BROWSER && sc != K_PLAY) return browserKey(sc);
+        if (sc == K_C1 || sc == K_AEL) {
+            if (!comparing) startCompare();
+            return true;
+        }
+        if (sc == K_DISP) return true;   // not bound on any screen (issue #18)
         int step = turn(sc);
         if (step != 0) {                                         // any wheel or dial: along the line the highlight is on
             if (focus) stepValue(step); else if (Params.onRecipeLine(overlay, row)) nextRecipe(step); else moveChip(step);
@@ -2035,7 +2124,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
             case K_S1: try { camera.cancelAutoFocus(); } catch (Throwable t) {} return true;
             case K_S2: cancelCapture(); return true;
             case K_UP: case K_DOWN: case K_LEFT: case K_RIGHT: case K_PLAY: case K_DISP:
-            case K_DELETE: case K_SK2: case K_C1: case K_AEL: return true;
+            case K_DELETE: case K_SK2: return true;
+            case K_C1: case K_AEL:
+                if (comparing) stopCompare();
+                return true;
         }
         return super.onKeyUp(keyCode, e);
     }

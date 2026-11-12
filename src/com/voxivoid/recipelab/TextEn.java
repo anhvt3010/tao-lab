@@ -274,5 +274,17 @@ final class TextEn {
         { "transfer_totals", "%1$d requests  ·  %2$s  ·  %3$s" },
         { "transfer_totals_active", "%1$d requests  ·  %2$s  ·  %3$s  ·  %4$d active" },
         { "action_stop", "stop" },
+
+        // ---- shooting categories
+        { "cat_portrait", "Portrait" },
+        { "cat_street", "Street" },
+        { "cat_cine", "Cinema" },
+        { "cat_landscape", "Landscape" },
+        { "cat_mono", "B&W" },
+        { "cat_standard", "Standard" },
+        { "cat_vintage", "Vintage" },
+        { "cat_art", "Creative" },
+        { "cat_natural", "Natural" },
+        { "compare_sony_original", "SONY ORIGINAL (C1/AEL)" },
     };
 }

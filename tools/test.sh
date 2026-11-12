@@ -99,16 +99,19 @@ fi
 rm -rf out/test/classes out/test/test-classes out/test/reports
 mkdir -p out/test/classes out/test/test-classes
 
+CP_SEP=":"
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) CP_SEP=";";; *) CP_SEP=":";; esac
+
 echo "[1/3] javac units (same flags as build.sh, no android.jar)"
 "$JAVA/javac" -encoding UTF-8 --release 8 -Xlint:-options -d out/test/classes "${UNITS[@]}"
 
 echo "[2/3] javac tests"
 find test -name '*.java' | sort > out/test/sources.txt
-"$JAVA/javac" -encoding UTF-8 --release 8 -Xlint:-options -cp "out/test/classes:$JUNIT_JAR" -d out/test/test-classes "@out/test/sources.txt"
+"$JAVA/javac" -encoding UTF-8 --release 8 -Xlint:-options -cp "out/test/classes${CP_SEP}$JUNIT_JAR" -d out/test/test-classes "@out/test/sources.txt"
 
 echo "[3/3] junit"
 FILTER=()
 [ -n "${1:-}" ] && FILTER=(--include-classname ".*$1.*")
 "$JAVA/java" -jar "$JUNIT_JAR" execute \
-  --class-path "out/test/classes:out/test/test-classes" --scan-class-path \
+  --class-path "out/test/classes${CP_SEP}out/test/test-classes" --scan-class-path \
   --reports-dir out/test/reports --details=tree --disable-banner --fail-if-no-tests "${FILTER[@]}"

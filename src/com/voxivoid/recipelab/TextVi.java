@@ -320,8 +320,7 @@ final class TextVi {
 
         // ---- brands
         { "group_sony", "Sony" },
-        { "group_fuji_sim", "Fuji Film Sim" },
-        { "group_fuji_film", "Fujifilm" },
+        { "group_fuji", "Fujifilm" },
         { "group_kodak", "Kodak" },
         { "group_cine", "Điện ảnh" },
         { "group_ricoh_gr", "Ricoh GR" },
@@ -410,5 +409,17 @@ final class TextVi {
         { "recipe_ilford_delta_100", "Ilford Delta 100" },
         { "recipe_ilford_delta_3200", "Ilford Delta 3200" },
         { "recipe_ilford_pan_f_50", "Ilford Pan F 50" },
+
+        // ---- categories
+        { "cat_portrait", "Chân dung" },
+        { "cat_street", "Đời thường" },
+        { "cat_cine", "Điện ảnh" },
+        { "cat_landscape", "Phong cảnh" },
+        { "cat_mono", "Trắng đen" },
+        { "cat_standard", "Tiêu chuẩn" },
+        { "cat_vintage", "Cổ điển" },
+        { "cat_art", "Nghệ thuật" },
+        { "cat_natural", "Tự nhiên" },
+        { "compare_sony_original", "MÀU GỐC SONY (C1/AEL)" },
     };
 }
